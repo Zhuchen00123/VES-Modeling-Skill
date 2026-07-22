@@ -1,17 +1,19 @@
-"""
-papers 已蒸馏, 本脚本归档不再使用; 需重新蒸馏请用 git 历史里的 papers/ 目录。
+"""Build descriptive statistics from a local directory of CUMCM PDFs.
 
-ingest_papers.py — 离线烘焙: 从 references/papers/ 下的 91 篇真国赛获奖论文 PDF
-                    抽取定量统计, 生成 references/empirical_distribution.md.
+This is an offline corpus-maintenance tool, not part of the contest runtime.
+The recorded source set contains 91 PDFs; 59 met the current text-extraction
+threshold in the archived run. Counts from a new run always take precedence.
 
-这是 skill 维护期的一次性脚本, 不在运行时调用。
-烘焙后的 markdown 在 L1 critic 评分时作为"硬阈值维度"的实测分位数依据。
+The generated Markdown describes the extractable subset. It is neither an
+official scoring boundary nor a claim about every source PDF, and it does not
+automatically update ``competitions/cumcm/empirical.json``.
 
-依赖: pdfplumber (pip install pdfplumber)
+Dependencies:
+    python -m pip install -r scripts/requirements-maintenance.txt
 
-用法:
-    python scripts/ingest_papers.py --papers-dir references/papers/ \\
-                                     --output references/empirical_distribution.md
+Example:
+    python scripts/ingest_papers.py --papers-dir /path/to/cumcm-papers \\
+        --output /path/to/empirical_distribution.md
 """
 
 import argparse
@@ -26,7 +28,9 @@ def extract_pdf_text(pdf_path: Path) -> str:
     try:
         import pdfplumber
     except ImportError:
-        raise ImportError("需 pip install pdfplumber (见 templates/requirements.txt)")
+        raise ImportError(
+            "需安装 pdfplumber（见 scripts/requirements-maintenance.txt）"
+        )
     text = ""
     try:
         with pdfplumber.open(pdf_path) as pdf:
@@ -176,11 +180,11 @@ def split_by_letter(stats_list: list) -> dict:
 
 def render_markdown(overall: dict, by_year: dict, by_letter: dict, n_total: int) -> str:
     lines = []
-    lines.append("# 国赛获奖论文实测分布 (empirical_distribution)")
+    lines.append("# CUMCM 可提取样本观察分布 (empirical_distribution)")
     lines.append("")
-    lines.append(f"> 从 `references/papers/` 下 {n_total} 篇真国赛获奖论文 (2023-2025) 自动烘焙。")
+    lines.append(f"> 基于输入目录中 {n_total} 份可提取文本的 CUMCM 论文样本自动生成。")
     lines.append(f"> 烘焙时间: {datetime.now().isoformat(timespec='seconds')}.")
-    lines.append("> 由 `scripts/ingest_papers.py` 生成。L1 critic 评摘要字数等硬阈值维度时引用本文件 p 分位。")
+    lines.append("> 由 `scripts/ingest_papers.py` 生成。分位数是样本观察值，不是官方评分线。")
     lines.append("")
     lines.append("---")
     lines.append("")
@@ -210,7 +214,7 @@ def render_markdown(overall: dict, by_year: dict, by_letter: dict, n_total: int)
 
     lines.append("## 2. 摘要质量信号")
     lines.append("")
-    lines.append(f"- **含定量结果比例**: {overall['pct_with_quantitative_abstract']}% (anti_pattern A1 阈值 — 一等奖应 ≥80%)")
+    lines.append(f"- **含定量结果比例**: {overall['pct_with_quantitative_abstract']}%")
     lines.append(f"- **5 段式完整命中 (≥4 anchor)**: {overall['pct_5para_full']}%")
     lines.append(f"- **5 段式部分命中 (≥3 anchor)**: {overall['pct_5para_partial']}%")
     lines.append("")
@@ -243,24 +247,12 @@ def render_markdown(overall: dict, by_year: dict, by_letter: dict, n_total: int)
 
     lines.append("---")
     lines.append("")
-    lines.append("## 与 winning_patterns.md 阈值的对照")
+    lines.append("## 使用边界")
     lines.append("")
-    lines.append("`winning_patterns.md` 当前的预设阈值 (estimate) vs 本文件的实测分位 (empirical):")
-    lines.append("")
-    if "abstract_chinese_chars" in overall and overall["abstract_chinese_chars"]:
-        d = overall["abstract_chinese_chars"]
-        lines.append(f"- 摘要字数: estimate=600-900 vs empirical=p25-p75 [{d.get('p25')}, {d.get('p75')}], median={d.get('p50')}")
-    if "n_figures" in overall and overall["n_figures"]:
-        d = overall["n_figures"]
-        lines.append(f"- 图数: estimate=18-25 vs empirical=p25-p75 [{d.get('p25')}, {d.get('p75')}], median={d.get('p50')}")
-    if "n_formulas" in overall and overall["n_formulas"]:
-        d = overall["n_formulas"]
-        lines.append(f"- 公式数: estimate=60-100 vs empirical=p25-p75 [{d.get('p25')}, {d.get('p75')}], median={d.get('p50')}")
-    if "n_refs" in overall and overall["n_refs"]:
-        d = overall["n_refs"]
-        lines.append(f"- 引用数: estimate=≥10 vs empirical=p25-p75 [{d.get('p25')}, {d.get('p75')}], median={d.get('p50')}")
-    lines.append("")
-    lines.append("如 estimate 与 empirical 偏差 >20%, 建议手动更新 `winning_patterns.md` 对应阈值。")
+    lines.append("- 所有分位数只描述本次成功提取的样本子集，不能用来推断官方评分线或奖项。")
+    lines.append("- 图、表、公式和章节的解析依赖正则表达式，复杂排版可能造成漏计或重复计数。")
+    lines.append("- `n_refs` 统计正文中的数字引用标记，可能重复出现，不等于参考文献条目数。")
+    lines.append("- 更新 `competitions/cumcm/empirical.json` 前，必须人工复核样本构成、异常值和当年规则。")
     lines.append("")
     return "\n".join(lines)
 
@@ -313,7 +305,7 @@ def main():
         print(f"摘要中文字数 p25/p50/p75: {overall['abstract_chinese_chars']}")
         print(f"图数 p25/p50/p75: {overall['n_figures']}")
         print(f"含定量结果比例: {overall['pct_with_quantitative_abstract']}%")
-        print(f"\n用 --output references/empirical_distribution.md 写入完整 markdown")
+        print("\n用 --output /path/to/empirical_distribution.md 写入完整 markdown")
 
     return 0
 

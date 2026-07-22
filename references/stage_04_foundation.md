@@ -2,11 +2,14 @@
 stage: 4
 name: foundation
 duration_h: 1
-inputs: [stage.2.key_variables, stage.3.selected_per_subproblem]
-outputs: [stage.4.{assumptions, symbols, terminology, consistency_check}]
-loads_reference: [rubrics.md§Stage_4, anti_patterns.md§B]
-loads_template: [assumption_table.md, notation_table.md]
-feedback: [L1]
+inputs:
+  - "stage.2.key_variables"
+  - "stage.3.selected_per_subproblem"
+outputs:
+  - "stage.4.{assumptions, symbols, terminology, consistency_check}"
+loads_reference: ["references/rubrics.md§Stage_4", "competitions/<comp>/anti_patterns.md§B"]
+loads_template: ["templates/shared/assumption_table.md", "templates/shared/notation_table.md"]
+feedback: ["L1"]
 next: stage_05_subproblem_loop
 ---
 
@@ -29,9 +32,9 @@ next: stage_05_subproblem_loop
 
 ## 产出
 
-- 假设清单 (3-7 条,每条带支撑) → 论文 §3
+- 假设清单 (仅保留模型实际依赖且有支撑或可检验的假设) → 论文 §3
 - 符号说明表 (含单位、类型) → 论文 §4
-- 术语表 (专业词、缩写) → 论文 §4 附录或脚注
+- 术语表 (仅收录正文实际使用且可能歧义的专业词、缩写) → 论文 §4 附录或脚注
 - 写入 `decision_log.stages.4`
 
 ---
@@ -57,25 +60,21 @@ next: stage_05_subproblem_loop
 - 决策者理性
 - 无外部冲击
 
-3 维度合计 5-15 条 → 筛留 3-7 条核心。
+逐项追问“删掉这条是否会改变模型、数据处理或结论边界”。只保留答案为“会”的必要假设；同义假设合并，没有支撑且也无法验证的非必要假设删除。
 
-### Step 2: 假设支撑(每条必须有) (15 min)
+### Step 2: 假设支撑与状态 (15 min)
 
-每条假设附 1 个支撑,三选一:
+每条假设记录来源、证据路径与状态。来源可为文献、附件数据、物理/业务机制或后续可执行检验；不要预填统计结果:
 
 ```
-假设 1: 短期内市场需求服从泊松分布。
-依据: 文献 [3] 在零售行业类似场景下采用相同假设, 
-      且对附件 1 数据 χ² 检验 p=0.34, 不拒绝泊松假设。
-
-假设 2: 运输车辆匀速行驶。
-依据: 附件 2 显示 95% 行程的速度方差 <5km/h, 平均速度变异系数 <8%。
-
-假设 3: 不同产品的生产线可独立排产 (无共享资源)。
-依据: 题目附件 4 流程图显示生产线物理隔离。
+A1: <模型实际依赖的假设>
+来源: literature | data | physical | business | test
+证据: <引用、附件字段、规则条款或待运行检验的产物路径>
+状态: verified | provisional | rejected
+影响: <若不成立，哪些公式、代码和结论需要回退>
 ```
 
-**反模式 B1 (假设无支撑)** 自动检测: 如有 "假设 X" 后无 "依据" 字样 → block。
+**反模式 B1 (假设无支撑)**: 必要但尚未验证的假设必须标记 `provisional`，并在 stage 5/6 安排检验或敏感性分析；若其不成立会推翻主结论且无法验证，则 block。不得编造“依据”让它看似已验证。
 
 ### Step 3: 符号表正式化 (15 min)
 
@@ -83,11 +82,7 @@ next: stage_05_subproblem_loop
 
 | 符号 | 含义 | 单位 | 类型 | 取值范围 |
 |------|-----|------|------|---------|
-| x_i | 第 i 个产品产量 | 件 | 决策变量 | x_i ∈ Z, [0, 100] |
-| p_i | 第 i 个产品单价 | 元/件 | 参数 | 附件 1 |
-| d_i | 第 i 个产品需求 | 件 | 随机变量 | d_i ~ Pois(λ_i) |
-| α | 折扣率 | 无量纲 | 参数 | [0, 1] |
-| **总数** | ≥10 |
+| `<symbol>` | `<正文中的实际含义>` | `<实际单位或无量纲>` | `<decision|parameter|state|random>` | `<由题面、定义或数据给定>` |
 
 **反模式 B5 (无单位)** 自动检测: 单位列空 → block (除非 "无量纲" 显式标注)。
 **反模式 B4 (符号重复)** 自动检测: 同一符号不同行 → block。
@@ -99,13 +94,11 @@ next: stage_05_subproblem_loop
 
 ### Step 4: 术语表 (5 min)
 
-专业术语 + 中英对照:
+只为正文实际使用且可能歧义的专业术语建立中英对照；通用词或未使用的术语不加入:
 
 | 中文 | 英文 | 缩写 | 首次出现章节 |
 |------|------|------|------------|
-| 拉格朗日松弛 | Lagrangian Relaxation | LR | §5.1.2 |
-| 拉丁超立方抽样 | Latin Hypercube Sampling | LHS | §6.1 |
-| 鲁棒优化 | Robust Optimization | RO | §5.3 |
+| `<实际使用术语>` | `<verified English name>` | `<有则填，无则留空>` | `<实际章节>` |
 
 ### Step 5: 一致性预检 (5 min)
 
@@ -121,7 +114,7 @@ next: stage_05_subproblem_loop
 ```json
 {
   "assumptions": [
-    {"id": "A1", "content": "...", "support": "...", "support_type": "literature|data|physical"},
+    {"id": "A1", "content": "...", "support": "...", "support_type": "literature|data|physical|business|test", "status": "verified|provisional|rejected", "impact": "..."},
     ...
   ],
   "symbols": [
@@ -141,25 +134,25 @@ next: stage_05_subproblem_loop
 
 | 维度 | 满分行为 |
 |------|---------|
-| 1. 假设数量 | 3-7 条 |
+| 1. 假设必要性 | 每条都对应实际模型依赖，无同义凑数项 |
 | 2. 假设支撑 | 每条必须有 |
 | 3. 符号唯一性 | 无重复 + 全有单位 |
 | 4. 与模型一致性 | 与 stage 3 无矛盾 |
-| 5. 术语规范 | ≥3 专业词,中英对照 |
+| 5. 术语规范 | 正文中可能歧义的术语均已定义；无未使用术语 |
 
 ## 常见坑
 
 - B1 假设无支撑 → Step 2 强制
-- B2/B3 假设过多/过少 → 3-7 硬约束
+- B2/B3 假设过多/过少 → 以模型依赖和证据状态审查，不设数量门槛
 - B4 符号重复 → Step 3 自动检
 - B5 无单位 → Step 3 自动检
 - 与 stage 5 不一致 → Step 5 预检 + L2 后续回检
 
 ## 退出条件
 
-1. 假设 3-7 条,每条有支撑
-2. 符号表 ≥10 项, 全有单位与类型
-3. 术语 ≥3 项 (若适用)
+1. 所有必要假设都有证据，或标记 provisional 且已有验证/回退计划
+2. 符号表覆盖后续实际使用的全部符号，全有单位与类型且无凑数项
+3. 正文实际使用且可能歧义的术语均已定义 (若适用)
 4. 一致性预检通过
 5. L1 全维 ≥7
 
@@ -170,4 +163,4 @@ next: stage_05_subproblem_loop
 ## 与 stage 5/8 的衔接
 
 stage 5 建模时,任何用到的符号必须先在本文表中。
-stage 8 写论文 §3 §4 时,直接复用本文产出 (winning_patterns §6 加分点)。
+stage 8 写论文 §3 §4 时,直接复用本文产出；若需参考经验模式，按竞赛读取 `competitions/<comp>/winning_patterns.md` 并核验其证据边界。

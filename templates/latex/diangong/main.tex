@@ -1,11 +1,9 @@
-% SEED v0.1 — 电工杯论文 LaTeX 模板 (基于 ctex article)
-% 用法: 由 scripts/render_paper.py --competition diangong 调用
-% 编译: xelatex main.tex (三编, 中文必须 xelatex)
-% 电工杯无官方模板, 本模板按工程类常见排版习惯组织
+% SEED v0.4 — 电工杯 LaTeX 装配模板
+% 规则基线最近核对 2026-07-22；提交前重查 competitions/diangong/current_rules.md。
 
 \documentclass[12pt,a4paper]{ctexart}
 
-\usepackage[margin=2.54cm]{geometry}
+\usepackage[margin=2.5cm]{geometry}
 \usepackage{amsmath,amssymb,amsthm}
 \usepackage{graphicx}
 \usepackage{float}
@@ -21,153 +19,62 @@
 \usepackage{subcaption}
 \usepackage{enumitem}
 \usepackage{titlesec}
-\usepackage{fancyhdr}
-\usepackage{lastpage}
 
-\hypersetup{
-    colorlinks=true,
-    linkcolor=blue,
-    filecolor=magenta,
-    urlcolor=blue,
-    citecolor=blue,
-}
-
-\lstset{
-    basicstyle=\small\ttfamily,
-    breaklines=true,
-    frame=single,
-    numbers=left,
-    numberstyle=\tiny,
-    showstringspaces=false,
-    extendedchars=false,
-}
-
-\pagestyle{fancy}
-\fancyhf{}
-\fancyhead[L]{电工杯论文 \#XXXX}
-\fancyhead[R]{第 \thepage\ 页 / 共 \pageref{LastPage} 页}
-\renewcommand{\headrulewidth}{0.4pt}
-
+\hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue,citecolor=blue}
+\lstset{basicstyle=\small\ttfamily,breaklines=true,frame=single,numbers=left,
+         numberstyle=\tiny,showstringspaces=false,extendedchars=false}
 \titleformat*{\section}{\Large\bfseries}
 \titleformat*{\subsection}{\large\bfseries}
 \titleformat*{\subsubsection}{\normalsize\bfseries}
 
 \begin{document}
 
-% ===== 封面 =====
+% MATHMODEL_* 字段是 fail-closed 渲染标记。render_paper.py 从
+% decision_log.paper_metadata 或显式 CLI 参数填入，正式编译不允许残留。
+% 第 1 页封面：报名序号 + 赛题论文题目（题目不用自拟）。
+\pagenumbering{gobble}
 \begin{titlepage}
+\thispagestyle{empty}
 \begin{center}
-\vspace*{2cm}
-{\Huge \textbf{电工杯论文标题}}\\[2cm]
-{\Large 题号: \textbf{A}}\\[1cm]
-{\Large 队伍编号: \textbf{XXXX}}\\[3cm]
+\vspace*{3cm}
+{\Large 报名序号：\textbf{MATHMODEL_DIANGONG_REGISTRATION_NUMBER}}\\[2cm]
+{\Huge \textbf{MATHMODEL_DIANGONG_TITLE}}\\[1cm]
+{\Large 题号：\textbf{MATHMODEL_DIANGONG_PROBLEM}}
 \end{center}
 \end{titlepage}
 
-% ===== 摘要 =====
+% 第 2 页：题目、摘要、关键词；从此页在页脚中部从 1 编号。
+\clearpage
+\pagenumbering{arabic}
+\pagestyle{plain}
+\begin{center}
+{\zihao{3}\bfseries MATHMODEL_DIANGONG_TITLE}
+\end{center}
 \section*{摘要}
+% MATHMODEL:SECTION abstract
 
-% TODO: 4 段式, 600-1000 字。
-% 1. 背景段 + 题目情境
-% 2. 方法段 + 命名变体 + 求解算法
-% 3. 结果段 (≥3 个工程量化数值, 含单位)
-% 4. 工程建议段
+\textbf{关键词：}MATHMODEL_DIANGONG_KEYWORDS
 
-\textbf{关键词:} 关键词1; 关键词2; 关键词3; 关键词4
+% 第 3 页开始正文；官网规范要求不要目录。
+\clearpage
+% MATHMODEL:SECTION 1_problem_restate
 
-\newpage
-\tableofcontents
-\newpage
+% MATHMODEL:SECTION 2_problem_analysis
 
-% ===== 正文 =====
+% MATHMODEL:SECTION 3_assumptions
 
-\section{问题背景与重述}
+% MATHMODEL:SECTION 4_notation
 
-\subsection{工程背景}
+% MATHMODEL:SECTION 5_models
 
-\subsection{题目重述}
+% MATHMODEL:SECTION 6_sensitivity
 
-\subsection{数据概览}
+% MATHMODEL:SECTION 7_evaluation
 
-\section{问题分析}
+% MATHMODEL:SECTION 8_references
 
-\subsection{子问题分解}
-
-\subsection{子问题依赖关系}
-
-\subsection{整体技术路线}
-
-\section{模型假设与符号说明}
-
-\subsection{基本假设}
-
-\subsection{符号说明}
-
-\section{数据预处理}
-
-\subsection{数据描述}
-
-\subsection{缺失值处理}
-
-\subsection{异常值剔除}
-
-\subsection{预处理后统计描述}
-
-\section{子问题求解}
-
-\subsection{子问题 1: \{子问题名\} (主线)}
-
-\subsubsection{问题描述与工程语境}
-\subsubsection{模型建立}
-\subsubsection{求解算法}
-\subsubsection{结果与物理意义}
-
-\subsection{子问题 2: \{子问题名\} (主线)}
-
-\subsection{子问题 3: \{子问题名\} (主线)}
-
-\subsection{子问题 4: \{子问题名\} (加分)}
-
-\subsection{子问题 5: \{子问题名\} (加分)}
-
-% ... 视题目子问数添加
-
-\section{灵敏度与鲁棒性分析}
-
-\subsection{工程参数扰动设计}
-
-\subsection{联合扰动结果}
-
-\subsection{鲁棒区间与工程含义}
-
-\section{工程实施建议}
-
-\subsection{分阶段方案}
-
-\subsection{实施代价估算}
-
-\subsection{落地风险与应对}
-
-\section{模型评价}
-
-\subsection{优点}
-
-\subsection{缺点与改进}
-
-\subsection{推广性}
-
-\bibliographystyle{gbt7714-numerical}
-\bibliography{references}
-
-% ===== 附录 =====
+% 正文结束后进入附录；当前官网规范写明附录页数不限。
 \appendix
-
-\section{主要算法伪代码}
-
-\section{完整代码}
-
-% TODO: 完整代码或 GitHub 链接
-
-\section{补充图表}
+% MATHMODEL:SECTION appendix_code
 
 \end{document}

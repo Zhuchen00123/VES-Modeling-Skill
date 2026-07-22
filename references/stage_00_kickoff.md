@@ -2,12 +2,20 @@
 stage: 0
 name: kickoff
 duration_h: 1
-inputs: [user_inputs.{competition, problem_id, team_size, deadline, pdf_path}]
-outputs: [stage.0.{team_roles, tools_ready, problem_scan, time_budget_h, collab_protocol, checklist_completed}, root.{competition, task_type}]
-loads_reference: [competitions/<competition>/winning_patterns.md, competitions/<competition>/topic_specs.json, competitions/<competition>/README.md]
-loads_template: [templates/shared/decision_log.json, templates/shared/requirements.txt]
-feedback: [L1]
-next: stage_01_problem_selection
+inputs:
+  - "user_inputs.{competition, problem_id, team_size, deadline, pdf_path}"
+outputs:
+  - "stage.0.{team_roles, tools_ready, problem_scan, time_budget_h, collab_protocol, checklist_completed}"
+  - "root.{competition, task_type}"
+loads_reference:
+  - "competitions/<comp>/current_rules.md"
+  - "competitions/<comp>/topic_specs.json"
+  - "competitions/<comp>/README.md"
+loads_template:
+  - "templates/shared/decision_log.json"
+  - "templates/shared/requirements.txt"
+feedback: ["L1"]
+next: "stage_01_problem_selection | wait_for_prompt"
 ---
 
 # Stage 0 — 团队启动与资料预扫
@@ -40,7 +48,7 @@ next: stage_01_problem_selection
 
 ### Step 1: 元信息收集 (5 min) — 问答式
 
-**一次性问 5 题** (Claude Code: 单条 AskUserQuestion; Codex CLI: 5 个编号列表, 见 `references/harness_compat.md` §1):
+收集以下 5 个启动字段。先合并当前用户消息与已有 state，**只询问尚缺字段**；不要为了凑满五问重复询问用户已经给出的竞赛、题号或 PDF 状态。将缺失项合并成一轮问答（Claude Code: 单条 AskUserQuestion；Codex: 编号列表，见 `references/harness_compat.md` §1）：
 
 1. **竞赛** — 选项: `1) cumcm 国赛  2) mcm 美赛  3) diangong 电工杯  4) 让我决定 (推荐 cumcm)`
 2. **题号** — 依竞赛动态生成选项 (cumcm A-E / mcm A-F / diangong A-B / `未公布`)
@@ -55,17 +63,21 @@ next: stage_01_problem_selection
 - `decision_log.problem_meta.{year, letter, title, deadline_iso, team_size}` ← 第 2-4 问
 - `decision_log.events.log` ← 第 5 问 (PDF 路径)
 
+先读取 `competitions/<comp>/current_rules.md`，再打开其中的官方来源复核当年规则；仓库内经验值不能覆盖官方通知。Stage 0 不预加载 `winning_patterns.md`：只有后续阶段需要某条经验模式、且能追溯其适用证据时才按需读取，避免把历史启发式误当成当年规则。
+
 **自动推断** (基于 competition 字段, 加载 `competitions/<comp>/README.md` 与 `topic_specs.json`):
 - 时长预算 (cumcm 72h / mcm 96h / diangong 72h)
 - 写作语言 (cumcm/diangong 中文 / mcm 英文)
 - LaTeX 编译器 (cumcm/diangong xelatex / mcm pdflatex)
-- 默认子问题数 (用于 stage 5 时间预算)
+- 题号对应的 task-type 路由候选（仅在题号真实可用后确认）
+
+题面未公布或尚未读取时，`problem_scan.subproblem_count` 与 `stages.5.qi_count` 保持 `null`；不得用历史题目或 `topic_specs.json` 猜默认子问数。
 
 `task_type` 字段在 stage 1 选定题号后再填 (`competitions/<comp>/topic_specs.json` 给出 `<letter> → task_type_key` 映射)。
 
 ### Step 2: 角色分工 (10 min)
 
-强制 3 主责 + 互备:
+确保以下三类职责都有明确主责与互备。队员少于三人时允许一人兼任，队员更多时可拆分；不要虚构成员或为满足表格强行一人一岗:
 
 | 角色 | 主责内容 | 互备 |
 |------|---------|------|
@@ -73,24 +85,27 @@ next: stage_01_problem_selection
 | **编程主** | stage 5 求解、stage 6 灵敏度 | 建模主 |
 | **写作主** | stage 8 主导,stage 1/9 协助 | 全员 |
 
-**反模式 J1** (anti_patterns.md): "三人都全栈但都不深" — 拒绝。
-强制每人写一句"我对这道题/这个角色的最大顾虑是什么"。
+**反模式 J1** (`competitions/<comp>/anti_patterns.md`): "人人都负责一切，实际无人主责" — 拒绝。
+每位真实队员写一句"我对这道题/这个角色的最大顾虑是什么"。
 
 ### Step 3: 工具就绪 checklist (15 min)
 
 逐项确认 (bash 验证):
 
 ```bash
-python --version           # ≥ 3.9
+python --version           # ≥ 3.10
 
-# 完整依赖检查 (一次性安装见 templates/requirements.txt)
+# 先运行 skill 自检；按实际竞赛替换 competition
+python <skill>/scripts/doctor.py --competition cumcm --workspace .
+
+# 完整建模依赖检查 (一次性安装见 templates/shared/requirements.txt)
 python -c "import numpy, scipy, sklearn, cvxpy, matplotlib, pandas, statsmodels, seaborn, SALib, pdfplumber, imblearn"
 
 # 关键 solver 检查 (优化类必备)
 python -c "import cvxpy; assert 'GLPK_MI' in cvxpy.installed_solvers(), '需 pip install cvxopt'"
 
 # LaTeX 必备
-xelatex --version          # cumcmthesis 用 xelatex (非 pdflatex)
+xelatex --version          # CUMCM/电工杯 ctexart 模板使用 xelatex
 
 which git
 ```
@@ -102,8 +117,8 @@ pip install -r <skill>/templates/shared/requirements.txt
 
 **目录初始化** (agent 自动执行, 不要让用户敲命令):
 ```bash
-mkdir -p cwd/state cwd/results cwd/figures cwd/paper_workspace
-cp <skill>/templates/shared/decision_log.json cwd/state/decision_log.json   # 仅当不存在时
+mkdir -p state results figures paper_workspace
+cp <skill>/templates/shared/decision_log.json state/decision_log.json   # 仅当不存在时
 ```
 
 写入 `decision_log.competition` 字段: agent 用 Read + Edit/Write (Claude Code) 或 apply_patch (Codex CLI) 完成, 不要让用户跑 `python -c ...`。
@@ -111,25 +126,25 @@ cp <skill>/templates/shared/decision_log.json cwd/state/decision_log.json   # �
 确认 (按 competition 分支):
 | competition | LaTeX 模板 | 引擎 | 静态资料 |
 |---|---|---|---|
-| cumcm | `<skill>/templates/latex/cumcm/cumcmthesis/cumcmthesis.cls` | xelatex | 91 篇真题 PDF (烘焙后已存档) |
-| mcm | `<skill>/templates/latex/mcm/main.tex` | pdflatex | seed v0.1 |
-| diangong | `<skill>/templates/latex/diangong/main.tex` | xelatex | seed v0.1 |
+| cumcm | `<skill>/templates/latex/cumcm/main.tex` | xelatex | 91 份来源记录 / 59 份可提取样本观察 |
+| mcm | `<skill>/templates/latex/mcm/main.tex` | pdflatex | COMAP 2027 规则基线；经验统计 `n=0` |
+| diangong | `<skill>/templates/latex/diangong/main.tex` | xelatex | 官网 2026-03-21 页面基线；经验统计 `n=0` |
 
 ### Step 4: 题目预扫 (题目公布后,15 min)
 
-用户提供题目 PDF 后,Claude 用 Read 工具读 PDF (前 5 页) 做快速识别:
+用户提供题目 PDF 后，agent 用当前 harness 可用的文件读取工具先核对题面与附件，再做快速识别；不要只读固定页数后就假定任务已完整：
 
 输出格式:
 ```json
 {
-  "problem_id": "2024-A",
-  "domain_keywords": ["调度", "最优化", "时变"],
-  "data_attachments": ["附件1: ...", "附件2: ..."],
-  "subproblem_count": 3,
-  "primary_problem_type": "优化类",
-  "secondary_types": ["仿真类"],
-  "estimated_difficulty": "medium",
-  "data_size_signal": "中等 (附件 ≤ 50MB)"
+  "problem_id": "<year-letter from the official prompt>",
+  "domain_keywords": ["<extracted keyword>"],
+  "data_attachments": ["<actual attachment path and description>"],
+  "subproblem_count": "<count parsed from the official prompt>",
+  "primary_problem_type": "<inferred type with evidence>",
+  "secondary_types": ["<only if applicable>"],
+  "estimated_difficulty": "<easy|medium|hard with rationale>",
+  "data_size_signal": "<actual scan result>"
 }
 ```
 
@@ -137,65 +152,21 @@ cp <skill>/templates/shared/decision_log.json cwd/state/decision_log.json   # �
 
 ### Step 5: 时间预算分配 (10 min)
 
-根据 deadline 倒推 (h), 按 competition 分支:
+从真实 deadline 倒推并写入 `decision_log.stages.0.time_budget_h`。题面未公布时只记录 **provisional** 总预算与以下保留项，不给 Stage 5 猜子问数量或“每问小时数”：
 
-#### CUMCM 国赛 (72h)
-| 阶段 | 配额 | 调整建议 |
-|-----|------|---------|
-| 0 | 1 | 固定 |
-| 1 | 3 | 选题难度大 +1h |
-| 2 | 3 | 多子问 +1h |
-| 3 | 3 | 不熟领域 +1h |
-| 4 | 1 | 固定 |
-| 5 | 30 (10/子问) | 主体, 保大头 |
-| 6 | 3 | 固定 |
-| 7 | 2 | 固定 |
-| 8 | 20 | 主体, 保大头 |
-| 9 | 4 | 固定 |
-| buffer | 2 | 应急 |
-| **合计** | **72** | |
-
-#### MCM 美赛 (96h)
-| 阶段 | 配额 | 备注 |
-|-----|------|------|
-| 0 | 1.5 | |
-| 1 | 4 | 6 题号选择更复杂 |
-| 2 | 3 | |
-| 3 | 4 | novel approach 思考时间 |
-| 4 | 1 | |
-| 5 | 38 (8-10/子问 × 4-5 子问) | 主体 |
-| 6 | 3 | sensitivity 必做 |
-| 7 | 2 | |
-| 8 | 30 | 1-page summary + Letter (D/E/F) 需打磨 |
-| 9 | 6 | 终审 + grammar + reproducibility |
-| buffer | 3.5 | 应急 |
-| **合计** | **96** | |
-
-#### 电工杯 (72h, 但子问 6-8)
-| 阶段 | 配额 | 备注 |
-|-----|------|------|
-| 0 | 1 | |
-| 1 | 2 | 题号选择简单 |
-| 2 | 3 | 子问多, 分解时间 |
-| 3 | 2 | |
-| 4 | 1.5 | 数据预处理章节准备 |
-| 5 | 36 (4.5-6/子问 × 6-8 子问) | **主问 3-4 详写, 加分 2-3 简写** |
-| 6 | 3 | 工程参数扰动 |
-| 7 | 2 | |
-| 8 | 18 | 25-30 页 |
-| 9 | 3 | |
-| buffer | 0.5 | 应急 |
-| **合计** | **72** | |
-
-如总剩余少于上述, 按比例压缩, 但 stage 5/8 不低于 60% 的默认值。
+- 为最终装配、格式复核、支撑材料上传和不可预见故障保留明确缓冲。
+- 题面公布后，根据实际子问、依赖链、数据清洗量、求解成本和当届交付要求，再分配 Stage 1–9。
+- Stage 5 与 Stage 8 通常占主体，但具体比例必须来自当前题面和团队能力；验证与合规不能被压缩为零。
+- MCM/ICM 的 Summary Sheet、问题特定交付物与 AI 报告，电工杯的封面/摘要页，以及 CUMCM 的 AI 披露材料都要进入真实预算。
+- 剩余时间不足时，列出会牺牲的验证或表达范围，让用户确认取舍，不假装仍能完成完整流程。
 
 ### Step 6: 协作约定 (5 min)
 
 写入 `decision_log.stages.0.notes`:
 - 命名规范: 文件 / 变量 / Python 模块
-- 版本控制: git 提交频率 (每 2h 一次)
-- 沟通节奏: 每 4h 5 分钟同步
-- 求助升级: 卡住超 1h 必须群内 broadcast
+- 版本控制: 由团队按产物边界约定提交/检查点节奏
+- 沟通节奏: 由 deadline 与并行任务决定；每次同步必须包含阻断项和交接产物
+- 求助升级: 为当前赛程约定明确触发条件，不使用脱离任务风险的固定时长
 
 ---
 
@@ -229,10 +200,13 @@ cp <skill>/templates/shared/decision_log.json cwd/state/decision_log.json   # �
 3. (若题目已发布) 题目预扫完成
 4. L1 rubric 全维 ≥7
 
-→ 跳转 `stage_01_problem_selection.md`
+分支：
+
+- **题面与候选题已可读** → 跳转 `stage_01_problem_selection.md`。
+- **题面未公布/不可读** → 写入 `current_stage=0` 与等待原因，停止内容生成并等待用户提供题面；恢复时从 Step 4 继续，不重复已完成的角色和环境准备。
 
 ---
 
 ## 与 Stage 1 的衔接
 
-把 Step 4 的题目预扫 JSON 作为 stage 1 的"上下文输入"传过去,避免重新读题。
+仅在 Step 4 已完成时，把题目预扫 JSON 作为 Stage 1 的上下文输入，避免重新读题。没有题面时不得伪造预扫或进入选题。

@@ -7,9 +7,9 @@
     "refine_qis": ["Q2"]
   },
   "qi_results": [
-    {"qi": "Q1", "min": 8, "mean": 8.5},
-    {"qi": "Q2", "min": 5, "mean": 6.4},
-    {"qi": "Q3", "min": 8, "mean": 8.8}
+    {"qi": "Q1", "min": 8, "mean": 8.5, "issues": []},
+    {"qi": "Q2", "min": 5, "mean": 6.4, "issues": []},
+    {"qi": "Q3", "min": 8, "mean": 8.8, "issues": []}
   ],
   "qi_weights": [1.0, 1.0, 1.0]
 }

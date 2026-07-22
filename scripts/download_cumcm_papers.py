@@ -21,6 +21,7 @@ are missing, run:
 from __future__ import annotations
 
 import asyncio
+import argparse
 import io
 import os
 import re
@@ -35,8 +36,8 @@ import requests
 from bs4 import BeautifulSoup
 
 
-BASE_DIR = Path(r"D:\desktop\数学建模skill")
-PAPERS_DIR = BASE_DIR / "references" / "papers"
+_SKILL_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_PAPERS_DIR = _SKILL_ROOT / "references" / "papers"
 
 LIST_PAGES = {
     "2023": "https://dxs.moe.gov.cn/zx/hd/sxjm/sxjmlw/2023qgdxssxjmjslwzs/",
@@ -92,7 +93,7 @@ def requests_get(url: str, *, timeout: int = 40, retries: int = 3) -> requests.R
     raise last_exc  # type: ignore[misc]
 
 
-async def collect_list_links() -> list[PaperMeta]:
+async def collect_list_links(years: set[str] | None = None) -> list[PaperMeta]:
     from playwright.async_api import async_playwright
 
     metas: list[PaperMeta] = []
@@ -100,6 +101,8 @@ async def collect_list_links() -> list[PaperMeta]:
         browser = await p.chromium.launch(headless=True)
         try:
             for year, url in LIST_PAGES.items():
+                if years and year not in years:
+                    continue
                 page = await browser.new_page(viewport={"width": 1600, "height": 1200})
                 await page.goto(url, wait_until="networkidle", timeout=90000)
                 items = await page.eval_on_selector_all(
@@ -167,7 +170,7 @@ def save_images_to_pdf(image_blobs: Iterable[bytes], out_path: Path) -> None:
     first.save(out_path, save_all=True, append_images=rest)
 
 
-def process_paper(meta: PaperMeta) -> dict:
+def process_paper(meta: PaperMeta, papers_dir: Path) -> dict:
     html = requests_get(meta.url, timeout=60, retries=3).text
     page_title, image_urls = extract_image_urls(html)
     if not image_urls:
@@ -180,7 +183,7 @@ def process_paper(meta: PaperMeta) -> dict:
         }
 
     out_name = make_output_name(meta)
-    out_path = PAPERS_DIR / out_name
+    out_path = papers_dir / out_name
     blob_by_url = {}
     with ThreadPoolExecutor(max_workers=min(8, max(2, len(image_urls)))) as pool:
         futures = {pool.submit(download_image, u): u for u in image_urls}
@@ -208,7 +211,7 @@ def process_paper(meta: PaperMeta) -> dict:
     }
 
 
-def write_report(results: list[dict], failed: list[dict]) -> Path:
+def write_report(results: list[dict], failed: list[dict], papers_dir: Path) -> Path:
     total = len([r for r in results if r.get("ok")])
     by_year: dict[str, int] = {}
     for r in results:
@@ -249,15 +252,32 @@ def write_report(results: list[dict], failed: list[dict]) -> Path:
         "- The `front/contents` API probe returned either 404 or empty results for these exhibition pages, so it was not used.",
     ]
 
-    report = PAPERS_DIR / "_DOWNLOAD_REPORT.md"
+    report = papers_dir / "_DOWNLOAD_REPORT.md"
     report.write_text("\n".join(report_lines), encoding="utf-8")
     return report
 
 
 def main() -> int:
-    PAPERS_DIR.mkdir(parents=True, exist_ok=True)
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--papers-dir",
+        type=Path,
+        default=DEFAULT_PAPERS_DIR,
+        help="PDF 输出目录; 默认 <skill>/references/papers",
+    )
+    parser.add_argument(
+        "--years",
+        nargs="+",
+        choices=sorted(LIST_PAGES),
+        default=sorted(LIST_PAGES),
+        help="要下载的官方展廊年份",
+    )
+    args = parser.parse_args()
 
-    metas = asyncio.run(collect_list_links())
+    papers_dir = args.papers_dir.expanduser().resolve()
+    papers_dir.mkdir(parents=True, exist_ok=True)
+
+    metas = asyncio.run(collect_list_links(set(args.years)))
     print(f"Collected {len(metas)} official paper links")
     if not metas:
         print("No official papers found")
@@ -268,7 +288,7 @@ def main() -> int:
 
     for idx, meta in enumerate(metas, 1):
         out_name = make_output_name(meta)
-        out_path = PAPERS_DIR / out_name
+        out_path = papers_dir / out_name
         if out_path.exists() and out_path.stat().st_size > 0:
             results.append({
                 "meta": meta,
@@ -283,7 +303,7 @@ def main() -> int:
 
         print(f"[{idx}/{len(metas)}] downloading {meta.year} {meta.code}")
         try:
-            res = process_paper(meta)
+            res = process_paper(meta, papers_dir)
             if res.get("ok"):
                 results.append(res)
                 print(f"  saved {res['path'].name} ({res['images']} pages)")
@@ -294,9 +314,9 @@ def main() -> int:
             failed.append({"meta": meta, "title": meta.title, "ok": False, "reason": str(exc)})
             print(f"  failed: {exc}")
 
-    report = write_report(results, failed)
+    report = write_report(results, failed, papers_dir)
 
-    pdf_count = sum(1 for _ in PAPERS_DIR.glob("*.pdf"))
+    pdf_count = sum(1 for _ in papers_dir.glob("*.pdf"))
     print(f"PDF count in target dir: {pdf_count}")
     print(f"Report written to: {report}")
     print(f"Successful downloads: {sum(1 for r in results if r.get('ok'))}")

@@ -13,6 +13,7 @@ from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, StackingClassifier
 from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score,
@@ -59,14 +60,13 @@ def evaluate_classifier(model, X_train, X_test, y_train, y_test):
 # ============================================================
 def compare_models(X, y, test_size=0.2):
     """
-    跑 6 个模型对比, 报告 5 折交叉验证 + 测试集指标
+    跑 5 个模型对比, 报告 5 折交叉验证 + 测试集指标
+
+    标准化放在 Pipeline 内, 确保每个交叉验证折只使用该折的
+    训练部分拟合 scaler, 避免折外信息泄漏。
     """
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=test_size, random_state=42, stratify=y)
-
-    scaler = StandardScaler()
-    X_train_s = scaler.fit_transform(X_train)
-    X_test_s = scaler.transform(X_test)
 
     models = {
         "Logistic": LogisticRegression(max_iter=1000, random_state=42),
@@ -78,14 +78,22 @@ def compare_models(X, y, test_size=0.2):
 
     results = {}
     for name, model in models.items():
+        pipeline = Pipeline([
+            ("scaler", StandardScaler()),
+            ("classifier", model),
+        ])
         # 5 折 CV
-        cv_scores = cross_val_score(model, X_train_s, y_train, cv=5, scoring='f1_weighted')
+        cv_scores = cross_val_score(
+            pipeline, X_train, y_train, cv=5, scoring='f1_weighted')
         # 测试集
-        eval_result = evaluate_classifier(model, X_train_s, X_test_s, y_train, y_test)
+        eval_result = evaluate_classifier(
+            pipeline, X_train, X_test, y_train, y_test)
         eval_result["cv_f1_mean"] = cv_scores.mean()
         eval_result["cv_f1_std"] = cv_scores.std()
         results[name] = eval_result
 
+    # 保留旧版 API: 返回一个已在完整训练集上拟合的 scaler。
+    scaler = results["Logistic"]["model"].named_steps["scaler"]
     return results, scaler
 
 
@@ -98,10 +106,16 @@ def stacking_classifier(X_train, X_test, y_train, y_test):
     """
     base_estimators = [
         ('rf', RandomForestClassifier(n_estimators=100, random_state=42)),
-        ('svm', SVC(kernel='rbf', probability=True, random_state=42)),
+        ('svm', Pipeline([
+            ('scaler', StandardScaler()),
+            ('classifier', SVC(kernel='rbf', probability=True, random_state=42)),
+        ])),
         ('gb', GradientBoostingClassifier(random_state=42)),
     ]
-    final_estimator = LogisticRegression(random_state=42)
+    final_estimator = Pipeline([
+        ('scaler', StandardScaler()),
+        ('classifier', LogisticRegression(random_state=42)),
+    ])
     stack = StackingClassifier(
         estimators=base_estimators,
         final_estimator=final_estimator,
@@ -181,16 +195,14 @@ if __name__ == "__main__":
                                 weights=[0.7, 0.3])  # 不平衡
 
     # 多模型对比
-    results, scaler = compare_models(X, y, test_size=0.2)
+    results, _ = compare_models(X, y, test_size=0.2)
     print("=== 各模型对比 ===")
     for name, r in results.items():
         print(f"{name}: F1={r['metrics']['f1']:.3f}, CV_F1={r['cv_f1_mean']:.3f}±{r['cv_f1_std']:.3f}")
 
     # Stacking
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
-    X_train_s = scaler.fit_transform(X_train)
-    X_test_s = scaler.transform(X_test)
-    stack_result = stacking_classifier(X_train_s, X_test_s, y_train, y_test)
+    stack_result = stacking_classifier(X_train, X_test, y_train, y_test)
     print(f"\nStacking 集成: F1={stack_result['metrics']['f1']:.3f}")
 
     # 可视化

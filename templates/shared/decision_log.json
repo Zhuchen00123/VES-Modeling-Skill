@@ -1,6 +1,6 @@
 {
-  "_schema_version": "3.0",
-  "_doc": "跨阶段决策日志。每个阶段开头读、结尾写。L2 回检读此文件寻找跨阶段冲突。schema 与 stage_NN.md 实际写入字段一一对齐。v3.0 加 competition / task_type / qi_weights 三字段支持三竞赛 + per-Qi 加权聚合。",
+  "_schema_version": "3.1",
+  "_doc": "跨阶段决策日志。每个阶段开头读、结尾写。L2 回检读此文件寻找跨阶段冲突。schema 与 stage_NN.md 实际写入字段一一对齐。v3.1 加入规则核对、AI 使用台账与最终论文元数据。",
   "competition": "cumcm",
   "task_type": null,
   "_competition_doc": "enum: cumcm | mcm | diangong (默认 cumcm 兼容老用户). 由 stage 0 kickoff 第一问填入。score_artifact.py / stage 文件按此字段 dispatch competitions/<comp>/* 加载。",
@@ -13,12 +13,36 @@
     "deadline_iso": null,
     "team_size": null
   },
+  "paper_metadata": {
+    "_doc": "最终渲染元数据。CUMCM 要求 title/keywords；MCM 要求 mcm_control_number/problem/title/keywords；电工杯要求 diangong_registration_number/problem/title/keywords。CLI 显式参数可覆盖这些值。不得填写 XXXX、X、TITLE OF YOUR PAPER、keyword1、关键词1 等占位符。",
+    "mcm_control_number": null,
+    "diangong_registration_number": null,
+    "problem": null,
+    "title": null,
+    "keywords": []
+  },
   "mode": "standard",
   "started_at": null,
   "current_stage": 0,
+  "compliance": {
+    "ruleset": {
+      "competition_year": null,
+      "verified_at": null,
+      "official_urls": [],
+      "page_limit": null,
+      "font_requirement": null,
+      "file_limits": {},
+      "anonymity_rules": [],
+      "ai_disclosure_rules": [],
+      "notes": ""
+    },
+    "ai_usage": null,
+    "_ai_usage_doc": "初始化为 null，要求团队核对后显式改为数组。[] 只表示确认未使用 AI；每条记录遵循 templates/shared/ai_usage_ledger.json。null 或缺失字段不得被解释为未使用。"
+  },
   "budget": {
-    "tokens_used": 0,
-    "tokens_cap": 200000,
+    "_token_usage_doc": "仅当 harness/API 暴露可观测、可核验的 token usage 时记录 tokens_used/tokens_cap；不可观测时保持 null，不估算或伪造。",
+    "tokens_used": null,
+    "tokens_cap": null,
     "stage_durations_h": {}
   },
   "stages": {
@@ -77,11 +101,15 @@
     "5": {
       "_label": "subproblem_loop",
       "qi_count": null,
-      "_qi_count_doc": "题目子问题总数, 由 stage 1 选题后填入. cumcm IQR [3,5], mcm [3,5], diangong [6,8].",
+      "_qi_count_doc": "题目子问题总数，必须由当前题面实际提取并在 Stage 1 后填入；topic_specs 仅用于题号/task_type 路由，不预设子问数。",
       "qi_weights": [],
       "_qi_weights_doc": "per-Qi 加权聚合权重数组, 长度=qi_count. 默认均匀 [1.0]*qi_count. score_artifact.py compute_stage5_verdict 用此重加权 mean.",
       "qi_status": {},
-      "_qi_status_doc": "{Q1: pass | mark_for_review | refine, ...}. mark_for_review = 该 Qi 单独弱但全 stage 仍 pass, L2 必读.",
+      "_qi_status_doc": "{Q1: pass | mark_for_review | refine | block, ...}. high-severity issue 必须标记 block；mark_for_review = 该 Qi 单独弱但全 stage 仍 pass, L2 必读。",
+      "review_qis": [],
+      "refine_qis": [],
+      "block_qis": [],
+      "aggregate": null,
       "sub_problems": {
         "_template": {
           "model_name": "",
@@ -92,6 +120,7 @@
           "key_metrics": {},
           "physical_meaning_summary": "",
           "scores": {},
+          "issues": [],
           "iterations": 0
         }
       },
@@ -123,12 +152,18 @@
       "tables_per_subproblem": {},
       "abstract_drafts": [],
       "anchor_phrase_hits": {},
-      "danger_phrase_hits": []
+      "danger_phrase_hits": [],
+      "compliance": {
+        "rules_rechecked": false,
+        "paper_profile": null,
+        "ai_ledger_complete": false
+      }
     },
     "9": {
       "_label": "review",
       "anti_patterns_check": {
-        "total": 32,
+        "total": null,
+        "_total_doc": "由 active competition 的 anti_patterns.md 在 Stage 9 初始化，禁止将任一赛制的条目数硬编码为三赛制通用值。",
         "passed": 0,
         "fixed": 0,
         "deferred": 0,
@@ -143,6 +178,13 @@
       "weakest_section": null,
       "redo_log": [],
       "red_team_record": [],
+      "compliance_checks": {
+        "rules_verified": false,
+        "anonymity_passed": false,
+        "page_limit_passed": false,
+        "ai_disclosure_passed": false,
+        "supporting_materials_passed": false
+      },
       "final_pdf_path": null,
       "submission_ready": false
     }

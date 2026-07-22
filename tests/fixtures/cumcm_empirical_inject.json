@@ -6,7 +6,7 @@
   "iteration": 0,
   "variant": "stage_level",
   "scores": {
-    "1_abstract_5_paragraph": {"score": 7, "evidence": "5 段命中 4 anchor"},
+    "1_abstract_5_paragraph": {"score": 7, "evidence": "摘要覆盖任务、方法、可追溯结果、验证与边界，不要求固定五段"},
     "2_section_completeness": {"score": 8, "evidence": "8 章齐全"},
     "3_formulas_figures_citations": {"score": 8, "evidence": "公式 28 / 图 14 / 引用 15"},
     "4_language_quality": {"score": 8, "evidence": "无明显语病"},
@@ -16,7 +16,7 @@
   "mean_score": 7.6,
   "issues": [
     {"severity": "medium", "where": "§摘要", "anti_pattern_id": "A1",
-     "fix": "增加 1-2 个量化结果使总数 ≥3"}
+     "fix": "补入正文已验证、且能改变读者判断的核心结果与边界"}
   ],
   "evidence_metrics": {
     "abstract_chars": 720,

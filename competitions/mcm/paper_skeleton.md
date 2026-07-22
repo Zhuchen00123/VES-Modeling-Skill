@@ -1,115 +1,74 @@
-<!-- SEED v0.1 — MCM 论文 25-40 页骨架。 -->
+<!-- SEED v0.3 — flexible structure under the COMAP 2027 rules baseline. -->
 
-# MCM Paper Skeleton (SEED v0.1)
+# MCM/ICM paper skeleton
 
-> 美赛论文的标准结构。25-35 页常见, ≤ 50 页 (超出评委疲劳扣分)。
+> The complete main solution must stay within the current official limit. Under the recorded 2027 baseline, the Summary Sheet, solution, references, optional table of contents, appendices, code, and problem-specific deliverables together are at most 25 pages and use readable type of at least 12pt. Recheck `current_rules.md` every year.
 
-```
-[Cover Page]                                            (1 page, COMAP-provided template)
-  - Problem Chosen: A / B / C / D / E / F
-  - Team Control Number: #XXXX
-  - Year: YYYY
+## Workspace contract
 
-[1-Page Summary]                                        (1 page, 250-350 words)
-  - Problem framing
-  - Approach
-  - Key quantitative results (≥3 numbers)
-  - Caveat / Bold takeaway
-  - Keywords
+| File | Content |
+|---|---|
+| `01_abstract.md` | Summary Sheet content, no top-level heading |
+| `02_problem_restate.md` | context, scope, and tasks |
+| `03_analysis.md` | decomposition, dependencies, and technical route |
+| `04_assumptions.md` | assumptions, evidence, and affected scope |
+| `05_notation.md` | symbols, indices, and units |
+| `06_models.md` | formulations, algorithms, results, interpretation, and any required letter/memo before references |
+| `07_sensitivity.md` | validation, robustness, and failure conditions |
+| `08_evaluation.md` | strengths, limitations, transfer conditions, and conclusion |
+| `09_references.md` | verified references and required AI-tool citations |
+| `10_appendix.md` | essential reproducibility material within the main-solution limit |
+| `11_ai_use_report.md` | Report on Use of AI after the main solution, no top-level heading |
 
-[Table of Contents]                                     (~0.5 page)
+Files `02`–`10` each own a clear top-level Markdown heading. The renderer's MCM template supplies the Summary and AI-report headings and does not emit a table of contents by default.
 
-§1 Introduction                                         (1.5-2 pages)
-  1.1 Background / Motivation
-  1.2 Problem Restatement (in own words)
-  1.3 Literature Review (brief, ≤ 1/2 page)
-  1.4 Our Approach (high-level overview, 1 paragraph)
-  1.5 Outline of the Paper
+## Suggested evidence chain
 
-§2 Assumptions and Justifications                       (1 page)
-  - 5-10 assumptions, each with justification
-  - Table format encouraged
+```text
+[Summary Sheet — page 1]
+  problem → approach → traceable results → validation → limitation
 
-§3 Notation                                             (0.5-1 page)
-  - Symbol table: Symbol | Meaning | Unit
+1. Problem Context and Requirements
+  scope, data, decision, constraints, requested deliverables
 
-§4 Model Development                                    (5-10 pages)
-  4.1 Model 1 / Sub-problem 1
-       4.1.1 Problem formulation
-       4.1.2 Mathematical model
-       4.1.3 Solution approach
-  4.2 Model 2 / Sub-problem 2
-       ...
+2. Problem Analysis and Technical Route
+  subproblems, dependencies, alternatives, evaluation plan
 
-§5 Solution and Results                                 (4-8 pages)
-  5.1 Implementation
-  5.2 Results for Sub-problem 1
-       - Figures with self-contained captions
-       - Tables of key metrics
-  5.3 Results for Sub-problem 2
-       ...
-  5.4 Comparison to Baseline (if applicable)
+3. Assumptions and Notation
+  supported assumptions; unique symbols and units
 
-§6 Sensitivity and Robustness Analysis                  (1.5-2 pages)
-  6.1 Multivariate Perturbation (LHS / Sobol)
-  6.2 Tornado Plot
-  6.3 Robust Interval Discussion
+4. Model Development, Solution, and Results
+  formulation → solver → result → validation → interpretation for each task
 
-§7 Strengths and Weaknesses                             (1 page)
-  7.1 Strengths
-       - 3+ items, each with specific advantage
-  7.2 Weaknesses / Limitations
-       - 3+ items, each with severity + future work
+5. Validation, Sensitivity, and Failure Conditions
+  checks selected for the actual model risk
 
-§8 Conclusion                                           (0.5-1 page)
-  - Recap key findings
-  - Practical implications
-  - Future directions
+6. Strengths, Limitations, and Conclusions
+  evidence-backed claims and conditions for use
 
-§9 References                                           (1-2 pages, IEEE/APA)
-  - Minimum 12, typical 18-25
+[Problem-specific deliverable — only when the current prompt requires it]
 
-[Letter to Policymakers]                                (1-2 pages, ONLY for D/E/F)
-  - Dear {stakeholder}
-  - Context (plain language)
-  - 3 numbered actionable recommendations
-  - Caveat
-  - Sincerely
+References
 
-[Appendix A: Code Listing]                              (any length)
-  - Full listing or GitHub URL with commit hash
+Appendix / essential reproducibility material
 
-[Appendix B: Parameter Values]                          (≤ 1 page)
-  - Single table: Parameter | Value | Unit | Source
-
-[Appendix C: Additional Figures]                        (optional)
+[Report on Use of AI — after the main solution]
 ```
 
-## 页数预算
+Section names and ordering may change to fit the problem. Do not preserve an empty section merely because it appears in this skeleton.
 
-| Section | 页数 | 备注 |
-|---------|------|------|
-| Cover + Summary + TOC | 2.5 | 硬约束 |
-| Introduction | 1.5-2 | |
-| Assumptions + Notation | 1.5 | |
-| Model Development | 5-10 | 主体 |
-| Solution + Results | 4-8 | 主体 |
-| Sensitivity | 1.5-2 | 必做 |
-| Strengths/Weaknesses | 1 | |
-| Conclusion + References | 1.5-3 | |
-| Letter (if D/E/F) | 1-2 | |
-| Appendices | 2-5 | |
-| **Total** | **22-37** | 推荐 25-32 |
+## Page-budget decisions
 
-## 必备 anchor 清单 (stage 8 / stage 9 检查)
+Start from the official total and allocate pages after the solution is known. Protect the Summary Sheet, the main evidence chain, required deliverables, verified references, and enough reproducibility detail to support the claims. A table of contents, long code listing, extra figure, or decorative cover is optional only if the current rules allow it and the team deliberately spends the page budget.
 
-- [ ] 1-Page Summary 在第 2 页, 单页内, ≥3 quantitative results
-- [ ] Assumptions 表格化, 每条带 justification
-- [ ] Notation 表完整, 符号唯一
-- [ ] Model Development 至少 5 页, 含公式
-- [ ] Sensitivity 单独章节, 含 multivariate (非 OAT)
-- [ ] Strengths + Weaknesses 各 ≥ 3 条
-- [ ] References ≥ 12 条
-- [ ] Appendix Code Listing 或 GitHub 链接
-- [ ] (D/E/F) Letter 1-2 页, ≥3 actionable recommendations
-- [ ] PDF 总页数 25-40
+## Stage 9 checks
+
+- [ ] Summary Sheet is page 1 and agrees with the final results;
+- [ ] control number and page numbering meet the current instructions;
+- [ ] no student, advisor, school, or institution identity appears;
+- [ ] main solution, including every counted component, stays within the official page limit;
+- [ ] font is readable and at least the current minimum size;
+- [ ] every requested letter, memo, or other deliverable is present;
+- [ ] every headline value reproduces from saved artifacts;
+- [ ] references, data, parameters, and code provide a usable verification path;
+- [ ] AI tools are cited/disclosed and the report follows the main solution.

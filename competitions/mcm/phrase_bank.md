@@ -1,8 +1,8 @@
-<!-- SEED v0.1 — 英文学术句式 + Letter 模板。基于 MCM Outstanding 公开评语 + COMAP 备赛教材共识手写。 -->
+<!-- SEED v0.2 — optional English phrasing prompts; not a scoring rubric. -->
 
-# MCM Phrase Bank (SEED v0.1)
+# MCM Phrase Bank (SEED v0.2)
 
-> 英文学术句式库, 按论文位置分组。L1 critic 评 stage 8 时, anchor 命中数 ≥ N 触发 pass 锚定。
+> 英文学术句式库，按论文位置分组。只在句式准确表达团队真实证据时使用；命中句式不直接触发 pass。
 
 ---
 
@@ -18,7 +18,7 @@
 - "Our approach extends the classical {model name} by introducing {modification}."
 - "We solve the resulting {problem type} via {algorithm} and validate against {baseline}."
 
-### Key results (≥3 quantitative)
+### Key results (include the material results the body supports)
 - "On {scenario}, our method achieves {metric} of {value}, a {percent}% improvement over {baseline}."
 - "Sensitivity analysis confirms robust performance within ±{percent}% perturbation of {parameter}."
 - "The optimal {decision variable} is {value}, yielding {outcome metric} = {value}."
@@ -79,16 +79,16 @@
 
 ---
 
-## 9. Letter to Policymakers (D/E/F 题)
+## 9. Problem-specific letter or memo (only when explicitly required)
 
 ### Opening
 - "Dear {Stakeholder Title},"
 - "We are writing to share findings from a recent analysis of {issue} that may inform {decision}."
 
 ### Context (1 paragraph, plain language)
-- "Our analysis examined {problem} under {key conditions}. Without simplifying technical detail, the central question was: {question in plain terms}."
+- "Our analysis examined {problem} under {key conditions}. In plain terms, the central question was: {question}."
 
-### Three actionable recommendations
+### Evidence-backed recommendations
 1. **{Action 1}**. {1 sentence rationale + expected impact in plain terms}.
 2. **{Action 2}**. {...}.
 3. **{Action 3}**. {...}.
@@ -98,7 +98,7 @@
 - "We are happy to discuss the technical details further if useful."
 - "Sincerely, Team #{XXXX}"
 
-**长度目标**: 1-2 页 (350-700 词)。**避免**: 公式 / 算法名 / 章节编号 / 引文。
+长度和格式由当前题目决定。避免未解释的公式、算法名和技术术语；引用与证据仍需满足当前要求。
 
 ---
 
@@ -118,13 +118,13 @@
 
 ---
 
-## 锚点命中目标 (L1 critic)
+## 内容覆盖提示（不作为固定评分线）
 
-| Stage | 类别 | 命中数 ≥ |
-|-------|------|---------|
-| 8 (summary) | Summary anchors | 4 (problem + approach + ≥2 quant + takeaway) |
-| 8 (intro) | Intro anchors | 3 |
-| 8 (model) | Model setup | 3 |
-| 8 (sens) | Sensitivity anchors | 2 |
-| 8 (S/W) | Strengths + Weaknesses | 各 ≥ 1 |
-| 8 (letter, 仅 D/E/F) | Letter anchors | opening + 3 actions + closing = 5 |
+| Stage | 类别 | 应覆盖的信息 |
+|-------|------|-------------|
+| 8 (summary) | Summary | problem + approach + traceable results + validation + limitation |
+| 8 (intro) | Introduction | context + gap + route |
+| 8 (model) | Model setup | variables + formulation + design rationale |
+| 8 (validation) | Validation | method + range/error + implication |
+| 8 (S/W) | Strengths + Weaknesses | evidence + affected conclusion |
+| 8 (conditional deliverable) | Letter/Memo | reader + evidence-backed actions + caveat + closing |

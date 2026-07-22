@@ -1,9 +1,8 @@
-% SEED v0.1 — MCM/ICM 通用 LaTeX 模板 (基于 article + 常见 MCM 备赛模板共识)
-% 用法: 由 scripts/render_paper.py --competition mcm 调用
-% 编译: pdflatex main.tex (三编)
-% 字体: 默认 Computer Modern; 若需 Times Roman 取消 \usepackage{mathptmx} 注释
+% SEED v0.4 — MCM/ICM generic LaTeX assembly template
+% Used by scripts/render_paper.py --competition mcm
+% COMAP 2027 baseline: readable type >=12pt; complete main solution <=25 pages.
 
-\documentclass[11pt,letterpaper]{article}
+\documentclass[12pt,letterpaper]{article}
 
 \usepackage[margin=1in]{geometry}
 \usepackage{amsmath,amssymb,amsthm}
@@ -22,7 +21,7 @@
 \usepackage{enumitem}
 \usepackage{titlesec}
 \usepackage{fancyhdr}
-% \usepackage{mathptmx}  % uncomment for Times Roman
+\usepackage{lastpage}
 
 \hypersetup{
     colorlinks=true,
@@ -41,110 +40,68 @@
     showstringspaces=false,
 }
 
-% Header / Footer
+% MATHMODEL_* fields are fail-closed render tokens. render_paper.py replaces
+% every token from decision_log.paper_metadata or explicit CLI arguments.
 \pagestyle{fancy}
 \fancyhf{}
-\fancyhead[L]{Team \#XXXX}
+\fancyhead[L]{Team \#MATHMODEL_MCM_CONTROL_NUMBER}
 \fancyhead[R]{Page \thepage\ of \pageref{LastPage}}
 \renewcommand{\headrulewidth}{0.4pt}
-\usepackage{lastpage}
+\setlength{\headheight}{14.5pt}
 
-% Title spacing
 \titlespacing*{\section}{0pt}{12pt}{6pt}
 \titlespacing*{\subsection}{0pt}{10pt}{4pt}
 
 \begin{document}
 
-% ===== Cover Page =====
-\begin{titlepage}
+% Page 1 is the Summary Sheet. Keep the summary on this page and replace all
+% placeholders. Do not add a separate decorative cover page.
+\thispagestyle{fancy}
 \begin{center}
-\vspace*{2cm}
-\textbf{\LARGE 2026 MCM/ICM Summary Sheet} \\[1cm]
-{\large Problem Chosen: \textbf{A}} \\[0.5cm]
-{\large Team Control Number: \textbf{XXXX}} \\[2cm]
-{\Huge \textbf{TITLE OF YOUR PAPER}} \\[2cm]
+\textbf{\Large MCM/ICM Summary Sheet}\\[0.6cm]
+{\large Problem Chosen: \textbf{MATHMODEL_MCM_PROBLEM}}\hfill
+{\large Team Control Number: \textbf{MATHMODEL_MCM_CONTROL_NUMBER}}\\[0.7cm]
+{\LARGE \textbf{MATHMODEL_MCM_TITLE}}
 \end{center}
 
-% ===== 1-Page Summary =====
 \section*{Summary}
+% MATHMODEL:SECTION abstract
 
-% TODO: 1-page summary, 250-350 words. Filled by stage 8 output.
-% Anchors: problem framing / approach / key quantitative results (>=3) / caveat / bold takeaway
+\textbf{Keywords:} MATHMODEL_MCM_KEYWORDS
+\clearpage
 
-\textbf{Keywords:} keyword1, keyword2, keyword3, keyword4, keyword5
+% The section Markdown files own their headings. A table of contents is not
+% emitted by default because it consumes the 25-page solution budget. Add one
+% only when the team deliberately chooses to include it.
 
-\end{titlepage}
+% MATHMODEL:SECTION 1_problem_restate
 
-\newpage
-\tableofcontents
-\newpage
+% MATHMODEL:SECTION 2_problem_analysis
 
-% ===== Body =====
+% MATHMODEL:SECTION 3_assumptions
 
-\section{Introduction}
+% MATHMODEL:SECTION 4_notation
 
-% TODO: 1.5-2 pages. Background / Problem Restatement / Lit Review / Our Approach / Outline.
+% MATHMODEL:SECTION 5_models
 
-\subsection{Background and Motivation}
+% MATHMODEL:SECTION 6_sensitivity
 
-\subsection{Problem Restatement}
+% MATHMODEL:SECTION 7_evaluation
 
-\subsection{Literature Review}
+% Put any problem-specific letter, memo, or other required deliverable in the
+% appropriate body Markdown file before References. It counts toward the main
+% solution page limit unless the current problem explicitly says otherwise.
+% MATHMODEL:SECTION 8_references
 
-\subsection{Our Approach}
-
-\subsection{Outline}
-
-\section{Assumptions and Justifications}
-
-% TODO: 5-10 assumptions, table format.
-
-\section{Notation}
-
-% TODO: symbol table.
-
-\section{Model Development}
-
-% TODO: 5-10 pages, sub-problems.
-
-\subsection{Sub-problem 1}
-
-\subsection{Sub-problem 2}
-
-\section{Solution and Results}
-
-% TODO: 4-8 pages.
-
-\section{Sensitivity and Robustness Analysis}
-
-% TODO: multivariate (not OAT). LHS or Sobol.
-
-\section{Strengths and Weaknesses}
-
-\subsection{Strengths}
-
-\subsection{Weaknesses}
-
-\section{Conclusion}
-
-\bibliographystyle{ieeetr}
-\bibliography{references}
-
-% ===== Letter to Policymakers (D/E/F only) =====
-\newpage
-\section*{Letter to Policymakers}
-\addcontentsline{toc}{section}{Letter to Policymakers}
-
-% TODO: Only for D/E/F problems. 1-2 pages, plain language, 3 actionable recommendations.
-
-% ===== Appendices =====
 \appendix
-\section{Code Listing}
+% MATHMODEL:SECTION appendix_code
 
-% TODO: full code listing or GitHub URL.
-
-\section{Parameter Values}
-
-% TODO: single table of all parameters used.
+% COMAP 2027: this report follows the main solution and is excluded from its
+% 25-page limit. AI tools must also be disclosed/cited where the rules require.
+% MATHMODEL:OPTIONAL ai_use_report BEGIN
+\clearpage
+\section*{Report on Use of AI}
+% MATHMODEL:SECTION ai_use_report
+% MATHMODEL:OPTIONAL ai_use_report END
 
 \end{document}

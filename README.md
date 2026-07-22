@@ -1,217 +1,309 @@
-# mathmodel-skill (v6.0.0)
+# mathmodel-skill
 
-> 面向 CUMCM (国赛) / MCM·ICM (美赛) / 电工杯 三类数学建模竞赛的 10 阶段工程化流程。**全程问答式**——用户只需回答编号问题, 不必手敲 bash / python / json。同时支持 **Codex** 与 **Claude Code**, 状态文件跨 harness 互通。带 4 层反馈、跨阶段一致性回检、终局多视角评审、题型差异化加权、实测分位锚定打分。
+> 把 72–96 小时的数学建模协作，变成一条可恢复、可检查、可交付的流程。
 
-[![Version](https://img.shields.io/badge/version-v6.0.0-blueviolet)](#开发日志)
-[![Claude Code](https://img.shields.io/badge/Claude%20Code-Skill-FF6B35)](https://docs.claude.com/en/docs/claude-code/overview)
-[![Codex](https://img.shields.io/badge/Codex-AGENTS.md-10A37F)](./AGENTS.md)
-[![Codex Skill](https://img.shields.io/badge/Codex-Skill%20%2B%20Plugin-10A37F)](./.codex-plugin/plugin.json)
-[![Friendly Mode](https://img.shields.io/badge/UX-问答式-success)](#怎么用)
-[![Stages](https://img.shields.io/badge/stages-10-blue)](./SKILL.md)
-[![Feedback Layers](https://img.shields.io/badge/feedback%20layers-4-green)](./references/feedback_layer1_critic.md)
-[![Modes](https://img.shields.io/badge/modes-fast%20%7C%20standard%20%7C%20championship-9cf)](./SKILL.md)
-[![Competitions](https://img.shields.io/badge/competitions-CUMCM%20%7C%20MCM%20%7C%20Diangong-orange)](./competitions/)
-[![Distilled From](https://img.shields.io/badge/CUMCM%20baked-91%20papers%20%282023--2025%29-orange)](./competitions/cumcm/empirical.json)
-[![MCM Diangong](https://img.shields.io/badge/MCM%20%26%20Diangong-seed%20v0.1-yellow)](./competitions/mcm/README.md)
-[![Python](https://img.shields.io/badge/python-3.9%2B-3776AB?logo=python&logoColor=white)](./templates/shared/requirements.txt)
-[![License](https://img.shields.io/badge/license-MIT-lightgrey)](#license)
+[![Version](https://img.shields.io/badge/version-v6.1.0-6f42c1)](./.codex-plugin/plugin.json)
+[![CI](https://github.com/handsomeZR-netizen/mathmodel-skill/actions/workflows/ci.yml/badge.svg)](https://github.com/handsomeZR-netizen/mathmodel-skill/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](./scripts/doctor.py)
+[![Competitions](https://img.shields.io/badge/CUMCM%20%7C%20MCM%2FICM%20%7C%20Diangong-workflow-f97316)](./competitions/)
+[![License](https://img.shields.io/badge/license-MIT-22c55e)](./LICENSE)
 
----
+mathmodel-skill 是面向 CUMCM、MCM/ICM 与电工杯的 Agent 工作流。它把选题、拆题、模型选择、求解、稳健性、写作和终审串成 10 个阶段，并用一份可读的决策日志，让团队在长时间、高压力的协作里依然知道：我们做过什么、为什么这样做、下一步该检查什么。
 
-## 这是什么
+支持 Codex Skills、Codex Plugin 与 Claude Code。核心流程不要求你手工维护 JSON，也不要求你记住每个脚本的参数；关键节点由 Agent 用编号选项与你确认，状态和产物由流程接住。
 
-数学建模竞赛是 3-4 天完成 1 篇 25-40 页论文的紧迫工程, 流程从选题、建模、求解、灵敏度到写作很容易在某一环悄悄崩。这套 skill 把每个阶段的检查项、典型反模式、跨阶段一致性约束固化下来, 让大模型按固定流程跟使用者一起走, 减少返工。
+[为什么要做](#凌晨两点之后真正难的是什么) · [设计取舍](#为什么不是其他几种做法) · [精心设计](#一些刻意做小但很重要的设计) · [快速开始](#quick-start) · [可信边界](#边界与可信度)
 
-**v6 起三条设计**:
-- **Codex-native packaging** — 按 OpenAI Codex Skills / AGENTS.md / Plugins 的官方形态补齐 `agents/openai.yaml` 与 `.codex-plugin/plugin.json`, 适合放入 `$HOME/.agents/skills/` 或项目 `.agents/skills/`。
-- **全程问答式 (Friendly Mode)** — 关键决策 (选题/选模型/verdict/refine) 全部以编号选项呈现, 用户输入 1-4 即可推进, 全程不需要手敲 bash / python / json。每个问题都有 "让我决定 (推荐 X)" 兜底, 完全无脑也能跑通。
-- **harness-agnostic** — 同一份 skill, **Codex** 通过 skill 目录 / `AGENTS.md` / plugin 入口, **Claude Code** 通过 `SKILL.md` 入口, 状态文件 `cwd/state/decision_log.json` 跨 harness 互通。Day 1 在 Codex 跑 stage 0-2, Day 2 切回 Claude Code 接着 stage 3+, 完全不丢状态。
+## 凌晨两点之后，真正难的是什么
 
-它不替选题、不替建模、不保证拿奖。**作用是把节奏卡住, 把容易忘的细节固化, 把别人论文里反复出现的句式与命名提取出来供模仿。**
+代码终于跑出了结果。可队友正在使用另一套符号，摘要仍然引用下午已经放弃的模型，灵敏度分析还没有开始。
 
-蒸馏内容来源:
-- CUMCM: 91 篇真国赛 2023-2025 获奖论文自动烘焙 (`empirical.json` 含 11 维 p25/p50/p75 实测分位)
-- MCM/ICM: 基于 COMAP 公开 scoring rubric + Outstanding Winner 公开模式手写, **seed v0.1**
-- 电工杯: 基于历年题量 + 公开评审标准估算, **seed v0.1**
+数学建模论文不是一次回答，而是一串有前后依赖的决定：选题决定数据和方法，假设决定模型边界，模型决定结果，结果又决定摘要里能不能写出可信的数字。单次回答可以很聪明，但如果这些依赖只留在聊天窗口里，一次上下文切换就足以让它们脱节。
 
----
+mathmodel-skill 从这里出发。它不试图成为“最会答题的 Prompt”，而是把一场比赛中容易遗忘的流程、决策和检查点，写成一套可以执行、恢复和复核的工作协议。
 
-## 支持的竞赛
+它做三件事：
 
-| 竞赛 | 时长 | 语言 | LaTeX | 子问数 | 数据状态 |
-|------|------|------|-------|--------|---------|
-| **CUMCM 国赛** | 72h | 中文 | xelatex / cumcmthesis | 3-5 | stable (91 篇真烘焙) |
-| **MCM/ICM 美赛** | 96h | English | pdflatex | 3-6 | seed v0.1 (公开评审标准 + 教材共识) |
-| **电工杯** | 72h | 中文 | xelatex / ctex | 6-8 | seed v0.1 (历年题量估算) |
+- 把流程显式化：从团队启动到提交前终审，10 个阶段各自有输入、产出和退出条件。
+- 把决策显式化：选了哪道题、为何放弃另一模型、哪个假设影响了哪些子问，都进入 `state/decision_log.json`，而不是沉在聊天记录里。
+- 把质量检查显式化：阶段内评分、跨阶段一致性回检、终稿多视角评审与合规门各司其职；发现问题时优先定向修补，不轻易整篇重来。
 
-切换方式: stage 0 kickoff 第一问选竞赛 → 自动写入 `decision_log.competition` → 后续阶段从 `competitions/<comp>/` 加载对应 winning_patterns / phrase_bank / anti_patterns / abstract_template / paper_skeleton。
+它不替团队做出正确模型，也不承诺奖项。它解决的是另一个更现实的问题：不让关键假设丢失，不让符号悄悄漂移，也不让某个薄弱子问被整篇平均分掩盖。
 
----
+## 从题目到终稿，只有一条共享主线
 
-## 怎么用
+```mermaid
+flowchart TD
+    A["题目与团队约束"] --> B["10 阶段主流程"]
+    C["竞赛特化包"] --> B
+    D["decision_log.json"] <--> B
+    B --> E["模型、结果、图表与论文"]
+    E --> F["L1 / L2 / L3 / L4 反馈"]
+    F -->|"定向修补"| B
+```
+
+主流程负责阶段顺序和状态；`competitions/<comp>/` 负责竞赛规则、写作模式、评分覆盖与 LaTeX 模板；辅助脚本负责可重复的评分、差分应用、预检、装配和 AI 使用披露。模型仍然由团队判断，脚本只把能确定的部分做得确定。
+
+## 这套流程实际带来了什么
+
+| 竞赛现场的常见问题 | mathmodel-skill 的处理方式 |
+|---|---|
+| 聊天一长，之前的选择和理由找不到 | 所有阶段共用 `decision_log.json`，记录选题、模型、假设、分数、回退与交付状态 |
+| 高分项掩盖一个致命短板 | Verdict 同时检查原始最低分与加权均分；高严重度问题直接阻断 |
+| Q2 出问题，却把 Q1/Q3 一起重做 | Stage 5 按子问保存状态，支持 `refine_partial` 只回修薄弱 Qi |
+| 三类比赛格式不同，流程被复制成三套 | 保留一条主流程，用 competition pack、权重 overlay 与模板表达差异 |
+| 正文分节已生成，主 TeX 却没有引用 | 三类竞赛模板统一使用显式 section marker；渲染器遇到缺失、重复或未知 marker 会失败 |
+| 封面或摘要页还留着 `XXXX`，却被误当作终稿 | 正式渲染要求提交元数据完整；占位符只能进入显式 dry-run，不能编译成提交 PDF |
+| 到提交前才发现页数、匿名或 AI 披露不合规 | Stage 0/8/9 重开当届规则；合规先于润色，违规状态不能进入 `submission_ready` |
+| 环境问题在最后一刻才暴露 | `doctor.py` 一次检查结构、Python、竞赛包、Pandoc、TeX 与可选建模依赖 |
+
+## 为什么不是其他几种做法
+
+### 不是一个更长的万能 Prompt
+
+泛用 Prompt 很适合解释概念、生成候选方案或修改一段文字。但竞赛是一条持续数十小时的长链任务，主要风险并不是提示词不够长，而是状态、依赖关系和退出条件没有被写出来。
+
+mathmodel-skill 仍然用模型完成每个局部任务，只是把“现在处于哪一步、上一阶段决定了什么、什么条件下才能继续”移到结构化工作流里。
+
+### 不把 RAG 当成流程引擎
+
+RAG 擅长回答“相关资料在哪里”，却不会自然回答“下一步该做什么”或“这个结果是否推翻了之前的假设”。仓库内材料规模有限且结构清晰，因此采用版本可控、按阶段加载的竞赛包。需要最新规则、领域论文或真实数据时，检索仍然重要，但它是证据来源，不是状态机。
+
+### 不默认在每一步堆满 Multi-Agent
+
+多 Agent 很适合并行比较题目、攻击模型假设或从不同评委视角审稿；如果每一步都由多个 Agent 协商，协调成本、上下文重复和符号不一致也会随之增加。
+
+因此主流程始终围绕一份共享决策日志推进，只在适合独立比较的环节启用并行视角。终稿 Panel 可以并行运行，也可以在单 Agent 环境中串行降级。
+
+### 不把整场比赛交给一个“一键成稿”的黑盒 Agent
+
+单体 Agent 并不是不能用；`fast` 和 `standard` 模式都可以在单 Agent 环境中完成。我们拒绝的，是把选题、建模、求解和写作压成一次不可观察的长执行。
+
+一键成稿看起来更快，但当某个假设出错时，团队很难判断它影响了哪一道子问、哪张图和摘要里的哪一句结论；中途换人、换模型或人工接管，也往往只能从头再来。
+
+mathmodel-skill 把自动化停在可检查的位置：每个阶段留下明确产物，关键选择由人确认，评分由脚本重算，问题以 section 或 Qi 为单位回修。Agent 仍然完成大量工作，但团队随时知道它做到了哪里、依据是什么，以及怎样安全地继续。
+
+这些方法并不互斥。我们的选择只是让它们各自在最擅长的位置出现，不让技术栈本身成为比赛的新负担。
+
+## 一些刻意做小、但很重要的设计
+
+1. **聊天用于交流，决策日志用于接力。** Codex 与 Claude Code 可以在同一工作区读取同一份 state schema；这不是云同步，切换工具时仍要保留项目目录和产物。
+
+2. **用户回答问题，Agent 维护流程。** 选竞赛、选题、选模型、接受或回修等关键决定使用原生选择 UI 或编号列表；Agent 负责读写状态和调用脚本。
+
+3. **只加载当前阶段。** 根 `SKILL.md` 是调度层，阶段细节、rubric 与竞赛包按需读取，避免把无关材料塞进同一个上下文。
+
+4. **同一主流程，不复制三套产品。** CUMCM、MCM/ICM 与电工杯的差异分别落在 `competitions/<comp>/`、题型权重与 LaTeX 模板里。
+
+5. **最低分与加权均分一起看。** 优势维度可以影响排序，但不能把一个低于门槛的维度平均掉；权重还会被限制在 `[0.7, 1.5]`，避免题型偏好失控。
+
+6. **一个子问失败，不推翻所有子问。** Stage 5 保留每个 Qi 的分数、权重和状态，只回到需要修改的那一问。
+
+7. **经验数据是锚点，不是神谕。** CUMCM 分位用于描述样本中的观察位置，不是官方评分线，更不能推导获奖概率；MCM/电工杯明确记录为 `n=0`，不生成看似精确的合成分位。
+
+8. **规则是活的，所以规则有日期。** `current_rules.md` 记录最近核对日期和官方入口；Stage 0/8/9 仍要求重新打开当届通知，仓库基线不能覆盖官方规则。
+
+9. **AI 使用从过程里记，不在截止前回忆。** 台账记录工具、版本、使用环节、用途、完整交互或用途披露、采用内容与人工复核；CUMCM 会按是否使用 AI 分流为详情 PDF 或参考文献后声明，MCM 报告会直接接入主模板。
+
+10. **能自动检查的地方不依赖“记得”。** YAML/JSON、竞赛包、反模式计数、评分边界、模板 marker、渲染 dry-run 与代码模板边界都有自动测试。
+
+## 三类竞赛，一条工作流
+
+| 竞赛包 | 语言与模板 | 当前材料 | 可信度说明 |
+|---|---|---|---|
+| **CUMCM 国赛** | 中文；XeLaTeX / 原创 `ctexart` 电子论文模板 | 收集 91 份公开论文源样本，其中 59 份成功提取文本并进入统计；42 项维护者反模式检查 | 当前最完整；观察分位不是官方门槛，规则以当届国赛通知为准 |
+| **MCM/ICM 美赛** | English；pdfLaTeX / `article` | 16 项维护者检查；已记录 COMAP 2027 页数、字号与 AI 披露基线 | 经验层 `n=0`，不提供论文分位；提交前必须重查 COMAP |
+| **电工杯** | 中文；XeLaTeX / `ctexart` | 12 项工程导向检查；已记录官网页序、25 页正文、支撑材料与匿名基线 | 经验层 `n=0`；当前官网页面未给专门 AI 格式，仍须检查当届通知 |
+
+截至 2026-07-22，仓库已核对 [CUMCM 2026 竞赛规则](https://www.mcm.edu.cn/html_cn/node/9d8e511fe7a1447b35f53a82c908e2e0.html)、[CUMCM 2026 论文格式规范](https://www.mcm.edu.cn/html_cn/node/4cd596519c9eb9fbd866398f6df0caa3.html)、[COMAP 2027 Instructions](https://www.contest.comap.com/undergraduate/contests/mcm/instructions.php)、[电工杯参赛规则](https://shumo.neepu.edu.cn/jszz/csgz.htm) 与 [电工杯论文规范](https://shumo.neepu.edu.cn/jszz/lwgf.htm)。这些链接是基线，不替代你参赛当年的官方文件。
+
+## 10 个阶段如何收敛
+
+| Stage | 任务 | 关键产物 | 主要检查 |
+|---:|---|---|---|
+| 0 | 团队启动与资料预扫 | 竞赛、角色、时限、环境、规则基线 | 可执行性与合规入口 |
+| 1 | 多题比较与选题 | 选择理由、放弃项、题型 | 资源匹配与失败风险 |
+| 2 | 问题拆解 | 子问、变量、约束、依赖图 | 逻辑完整性 |
+| 3 | 模型选型 | 有证据支撑的候选、反事实与淘汰理由 | 模型—问题匹配 |
+| 4 | Foundation | 假设、符号、术语表 | 一致性与可解释性 |
+| 5 | 递归求解 Q1…Qn | formulation、代码、结果、图表 | per-Qi 评分与定向回修 |
+| 6 | 稳健性 | 与模型风险匹配的验证、稳健区间、失败边界 | 灵敏度与结论可靠性 |
+| 7 | 模型评价 | 优点、局限、改进、迁移条件 | 诚实边界与推广性 |
+| 8 | 论文装配 | `paper_workspace/*.md`、TeX/PDF、AI 台账 | 跨阶段一致性与格式合规 |
+| 9 | 提交前终审 | 最终 PDF、支持材料、Panel 记录 | 合规门、证据链、视觉检查 |
+
+三种模式只改变预算和反馈深度，不改变竞赛分支：
+
+| Mode | 反馈层 | 适用场景 |
+|---|---|---|
+| `fast` | L1 单轮 | 选题试跑、紧急 sanity check |
+| `standard` | L1 + L2 | 默认主流程 |
+| `championship` | L1 + L2 + L3 + L4 + red-team | 终稿前的深度检查 |
+
+评分工具给出的是流程 verdict，不是奖项预测：`block`、`refine`、`refine_partial`、`pass_with_review`、`pass`、`pass_early` 或 `carryover`。
+
+## Quick Start
+
+### Codex
+
+#### macOS / Linux
+
+```bash
+git clone https://github.com/handsomeZR-netizen/mathmodel-skill.git \
+  ~/.agents/skills/mathmodel-skill
+
+python ~/.agents/skills/mathmodel-skill/scripts/doctor.py \
+  --competition cumcm
+
+mkdir -p my-modeling-project
+cd my-modeling-project
+codex
+```
+
+#### Windows PowerShell
+
+```powershell
+git clone https://github.com/handsomeZR-netizen/mathmodel-skill.git `
+  "$HOME\.agents\skills\mathmodel-skill"
+
+python "$HOME\.agents\skills\mathmodel-skill\scripts\doctor.py" `
+  --competition cumcm
+
+New-Item -ItemType Directory -Force my-modeling-project | Out-Null
+Set-Location my-modeling-project
+codex
+```
+
+然后说：
+
+```text
+使用 $mathmodel-skill，开始 CUMCM 建模。
+```
+
+第一次启动不会直接生成整篇论文。Agent 会先确认竞赛、题目、队伍能力、截止时间与题面位置，再建立共享状态并进入 Stage 0；已有状态时则从上次检查点继续。
+
+项目级安装也可以：
+
+```bash
+mkdir -p .agents/skills
+git clone https://github.com/handsomeZR-netizen/mathmodel-skill.git \
+  .agents/skills/mathmodel-skill
+```
 
 ### Claude Code
 
 ```bash
-git clone https://github.com/handsomeZR-netizen/mathmodel-skill.git ~/.claude/skills/mathmodel-skill
-pip install -r ~/.claude/skills/mathmodel-skill/templates/shared/requirements.txt
+git clone https://github.com/handsomeZR-netizen/mathmodel-skill.git \
+  ~/.claude/skills/mathmodel-skill
+
+mkdir -p my-modeling-project
+cd my-modeling-project
+claude
 ```
 
-启动 Claude Code, 跟 Claude 说"开始建模"或"打 mcm"。
+然后说“开始建模”或“使用 mathmodel-skill 开始 MCM 建模”。
 
-### Codex (推荐 V6 安装)
+### 可选的完整数值环境
+
+核心工作流和 `doctor.py --skip-tools` 不需要安装整套科学计算栈。需要运行仓库的建模起步代码时，再安装：
 
 ```bash
-git clone https://github.com/handsomeZR-netizen/mathmodel-skill.git ~/.agents/skills/mathmodel-skill
-pip install -r ~/.agents/skills/mathmodel-skill/templates/shared/requirements.txt
-cd <your-team-workspace>
-codex
+python -m pip install -r \
+  ~/.agents/skills/mathmodel-skill/templates/shared/requirements.txt
 ```
 
-跟 Codex 说"开始建模"或显式说"使用 `$mathmodel-skill` 开始建模"。Codex 会按 skill metadata 触发 `SKILL.md`; 如果当前 workspace 也有 `AGENTS.md`, Codex 会把它作为项目级 instructions 叠加。
+正式论文转换与编译还需要按平台安装 [Pandoc](https://pandoc.org/installing.html) 和 TeX Live / MiKTeX；简化转换器只用于 `--no-compile` 结构预检。CUMCM 与电工杯使用 XeLaTeX，MCM 使用 pdfLaTeX。
 
-项目级安装也可以:
+## Agent 会在工作区留下什么
 
-```bash
-mkdir -p .agents/skills
-git clone https://github.com/handsomeZR-netizen/mathmodel-skill.git .agents/skills/mathmodel-skill
+```text
+my-modeling-project/
+├── state/
+│   └── decision_log.json       # 决策、分数、回退、规则与 AI 使用台账
+├── results/                    # 结构化结果与可复现实验输出
+├── figures/                    # 最终图表
+├── paper_workspace/            # 01_abstract.md … 10_appendix.md，以及按需披露片段
+├── paper_output/               # TeX 中间文件与最终 PDF
+└── support_materials/          # 代码、数据清单与竞赛要求的披露材料
 ```
 
-Codex 没有原生选项 UI 时, skill 自动回退成 markdown 编号列表 (`1) ... 2) ... 4) 让我决定 (推荐 X)`), 你回数字即可。
+同一目录可以在 Codex 与 Claude Code 之间接力；`decision_log.json` 只负责状态，不会替你同步外部文件。
 
-### Codex Plugin 分发
+## 可重复的辅助工具
 
-V6 已包含 `.codex-plugin/plugin.json`, 可作为 Codex plugin 形式分发。该 manifest 按官方结构指向 `./skills/`, 其中 `skills/mathmodel-skill/SKILL.md` 是薄 shim, 会继续加载根目录主 `SKILL.md`。GitHub Release 源码包即可作为云端分发物。
+| 工具 | 用途 | 典型调用 |
+|---|---|---|
+| `scripts/doctor.py` | 检查 skill 结构、竞赛包、环境与工作区 | `python <skill>/scripts/doctor.py --competition mcm` |
+| `scripts/score_artifact.py` | 校验 critic JSON、重算加权分数和 verdict、聚合 per-Qi | `python <skill>/scripts/score_artifact.py ...` |
+| `scripts/extract_diff.py` | 生成并应用 section-level patch | `python <skill>/scripts/extract_diff.py --apply ...` |
+| `scripts/render_paper.py` | 把标准 Markdown 工作区装配成三竞赛 TeX/PDF | `python <skill>/scripts/render_paper.py --competition cumcm --workspace paper_workspace` |
+| `scripts/render_ai_usage.py` | 从台账生成 CUMCM/MCM 披露材料 | `python <skill>/scripts/render_ai_usage.py --competition mcm ...` |
+| `scripts/ingest_papers.py` | 维护者离线更新经验统计 | 见 [`scripts/README.md`](./scripts/README.md) |
 
-### OpenAI 官方文档对齐点
+CLI 参数与依赖边界集中记录在 [`scripts/README.md`](./scripts/README.md)。
 
-- [Codex 按层级读取 `AGENTS.md`](https://developers.openai.com/codex/guides/agents-md), 用于项目级 instructions。
-- [Codex Skills](https://developers.openai.com/codex/skills) 使用 `SKILL.md` frontmatter description 做触发, `agents/openai.yaml` 做 UI 元数据。
-- [Codex Plugins](https://developers.openai.com/codex/plugins) 可以声明并分发 skills, 适合团队复用。
-- 后续维护 OpenAI/Codex 相关规则时, 优先用 [OpenAI Docs MCP](https://developers.openai.com/learn/docs-mcp) 或 OpenAI 官方文档核对。
+## 仓库结构
 
-### 之后的事
-
-第一次会问 5 个问题 (竞赛、题号、队员、截止、PDF), 然后从 Stage 0 开始走。每个 stage 的关键决策点都会以编号问答呈现; 想偷懒就一直选"让我决定 (推荐 X)", 也能跑通。
-
-**跨 harness 接力**: 状态全部在 `cwd/state/decision_log.json`, 队友换 harness 接着跑不丢进度。详见 [`references/harness_compat.md`](./references/harness_compat.md)。
-
----
-
-## 结构
-
-```
-SKILL.md                       # Claude Code 入口, 三竞赛矩阵 + 加载协议 + verdict 定义
-AGENTS.md                      # Codex 项目级 instructions, 指向 SKILL.md + 说明 harness 差异
-agents/openai.yaml             # Codex skill UI 元数据 + 默认 prompt
-.codex-plugin/plugin.json      # Codex plugin 分发 manifest
-skills/mathmodel-skill/        # Codex plugin 官方 skills/ 布局 shim
-README.md                      # 当前文件
-competitions/                  # 竞赛特化层
-  cumcm/                       # 91 篇真烘焙: empirical.json + 蒸馏 markdown
-    winning_patterns.md
-    phrase_bank.md
-    anti_patterns.md            # 32 条
-    distilled_*.md              # 4 份蒸馏: 段落 / 命名 / 结构 / 格式
-    empirical.json              # p25/p50/p75 进入 L1 critic prompt
-    abstract_template.md        # 5 段式 + 完整示例
-    paper_skeleton.md           # 22-25 页骨架
-    rubric_overlay.json         # 国赛特化 dim
-    topic_specs.json            # A-E + task_type 映射
-  mcm/                         # SEED v0.1 - 1-page summary + Letter
-    (同结构, 加 SEED 标记)
-  diangong/                    # SEED v0.1 - 工程导向, 6-8 子问
-    (同结构, 加 SEED 标记)
-references/                    # 通用层 (跨竞赛共享)
-  stage_00 ~ stage_09           # 10 阶段细则 (含 YAML frontmatter)
-  feedback_layer1 ~ 4           # 自评 / 跨阶段回检 / 5 视角 panel / 防 gaming
-  rubrics.md                    # 评分量表 (与 SKILL.md verdict 三处统一)
-  model_catalog.md              # 60+ 模型按 10 类 + 历年题速查
-  harness_compat.md             # Claude Code / Codex 适配协议 (问答式 + state 互通)
+```text
+SKILL.md                         # 工作流唯一主入口与调度协议
+agents/openai.yaml               # Codex UI 元数据
+.codex-plugin/plugin.json        # Codex Plugin manifest
+skills/mathmodel-skill/SKILL.md  # Plugin 发现 shim
+AGENTS.md                        # 本仓库维护约定
+competitions/
+  cumcm/                         # 规则、59 样本统计、写作启发、评分覆盖、模板骨架
+  mcm/                           # COMAP 规则基线；经验统计 n=0
+  diangong/                      # 官网规则基线；工程经验统计 n=0
+references/
+  stage_00_* ... stage_09_*      # 按阶段懒加载的执行细则
+  feedback_layer1_* ... layer4_* # 阶段评分、回检、Panel、校准
+  model_catalog.md               # 模型候选目录
 templates/
-  latex/{cumcm,mcm,diangong}/   # 各竞赛 LaTeX 模板
-  shared/                       # 跨竞赛通用
-    decision_log.json           # 跨阶段状态 schema (含 v3.0 三新字段)
-    assumption_table.md
-    notation_table.md
-    sensitivity_table.md
-    code_starter/               # Python 起手代码 (优化/预测/评价/分类/仿真)
-    requirements.txt
-config/
-  dim_weights.json              # 三竞赛 × 题型 × stage × dim → 权重表
-scripts/
-  score_artifact.py             # L1 评分 + verdict 重算 + empirical 注入 + per-Qi 聚合 + 题型加权
-  extract_diff.py               # section-level patch 精修 (省 60% token)
-  render_paper.py               # md → tex → pdf 三竞赛分支 (xelatex/pdflatex)
-  ingest_papers.py              # PDF 烘焙 (cumcm 蒸馏后已存档; 后续 mcm/diangong 可用)
-tests/fixtures/                 # score_artifact 单元测试样本
+  latex/{cumcm,mcm,diangong}/    # 三竞赛 LaTeX 模板
+  shared/                        # 状态、AI 台账、表格与 Python 起步代码
+config/dim_weights.json          # 竞赛 × 题型 × 阶段的评分权重
+scripts/                         # doctor、评分、差分、装配、披露与维护工具
+tests/                           # 回归测试与 fixture
 ```
 
----
+## v6.1：这次不只是换了一份 README
 
-## 设计选择
+- 引入 `doctor.py`，把包结构、竞赛包、反模式计数、模板 marker 与工具链预检收在一个入口。
+- 三类竞赛生成的 section 现在统一自动接入 `main.tex`；缺失/空章节、未知或重复 marker 都会明确失败，正式编译不会悄悄降级为简化转换。
+- CUMCM 改用仓库原创、MIT 授权的 `ctexart` 电子论文模板；模板不含身份字段，并对摘要页、正文页数和最终元数据做 fail-closed 检查。
+- 评分器以脚本重算 verdict，并校验 stage、iteration、最低分、均分与题型权重；修复了持久化旧 verdict 的问题。
+- `extract_diff.py --apply` 不再要求无关的 critique 输入。
+- 加入 AI 使用台账与披露生成器：CUMCM 按“已使用 / 明确未使用”分别生成支撑材料 PDF 或正文声明，MCM 报告自动放进模板且不会重复标题。
+- 补齐电工杯官网规则基线，并让封面、摘要起始页码、无目录、正文与附录顺序进入模板和终审门。
+- 修复分类交叉验证中的标准化泄漏、优化示例中的不可行贪心基线、熵权法常数列、GM(1,1) 极限和 MAPE 零值边界。
+- 校准 CUMCM 样本口径为“91 份来源、59 份可提取”；三套反模式清单在 Stage 9 按当前竞赛动态初始化，不再把某一赛制的数量写死进共享状态。
+- 加入自动测试和 GitHub Actions，覆盖配置、评分、模板装配、AI 披露与数值边界。
 
-- **Codex-native packaging (v6)**: `SKILL.md` 仍是主 workflow, `agents/openai.yaml` 提供 Codex UI 元数据, `.codex-plugin/plugin.json` + `skills/mathmodel-skill/` 提供 plugin 分发入口, `AGENTS.md` 只保留项目级 harness shim.
-- **Friendly Mode 优先**: 关键决策必须以编号选项呈现, 每问都有 "让我决定 (推荐 X)" 兜底. 用户不必读 stage 文档, 不必编辑 json, 不必敲 bash. 目标是把"工程化流程"对用户的认知负担降到最低.
-- **harness-agnostic**: skill 目录 / AGENTS.md / plugin / SKILL.md 多入口, decision_log.json 跨 harness 互通. 团队成员可以混用 Claude Code 与 Codex 接力打比赛.
-- **10 阶段 / 4 反馈层 / 3 模式 / 3 竞赛 / 2 harness 正交组合**: 每个轴向独立, 组合矩阵 ≥ 72 种行为. 切 harness 不影响 mode, 切竞赛不影响反馈层, 反之亦然.
-- **评分锚定实测分位** (cumcm): 91 篇 p25/p50/p75 直接进入 L1 Critic prompt 的 evidence 字段, 而非"推荐 600-900 字"这种估计值
-- **Stage 5 per-Qi 加权聚合** (v3.0): 单 Qi 弱不再被全 stage 平均掩盖. `pass_with_review` 与 `refine_partial` 两个新 verdict 实现差异化降级 — Q2 单独 refine 不重做 Q1/Q3, 节省 ~60% 时间
-- **题型 dim 权重**: A 优化题强化模型 dim, C 数据题强化统计/灵敏度, MCM 全题型强化 communication, F 政策题加权 Letter. 权重 clamp [0.7, 1.5] 防过激.
-- **路径协议严格**: `<skill>/` 内文件用 skill 相对路径, 用户产物 (state/results/figures/paper_workspace) 用 cwd 相对路径, 三竞赛特化文件用 `competitions/<comp>/` 通配. **harness 无关**.
-- **token 纪律**: section-level patch 精修, references/competitions 懒加载, decision_log 持久化, 早退阈值 (iter-1 全维 ≥9 即跳)
+## 边界与可信度
 
-## 不做的事
+- 本项目是协作与质量控制工作流，不是自动获奖系统，也不应替代团队的独立建模、验证与署名责任。
+- CUMCM 统计来自公开样本中的 59 份可提取文本，存在年份、题型、来源与 PDF 可提取性偏差。
+- `winning_patterns.md`、经验分位和反模式清单是维护者启发，不是官方 rubric。
+- MCM/ICM 与电工杯经验统计均明确为 `n=0`；其中写作模式是维护者启发，不能按“实测获奖规律”使用。
+- 规则会变化。仓库记录的是最近核对的基线；提交前必须以当届官方通知和题目要求为准。
+- AI 生成的公式、代码、事实与引用必须由团队复核；台账和报告生成器只帮助完整披露，不替代合规判断。
 
-不替选题、不替建模、不保证拿奖。蒸馏内容仅作模仿模板, MCM 与电工杯 seed v0.1 准确性低于 cumcm, 文件头部均有 SEED 标记。
+## 开发与验证
 
----
+```bash
+python -m compileall -q scripts templates/shared/code_starter
+python -m unittest discover -s tests -p 'test_*.py' -v
+python scripts/doctor.py --competition cumcm --skip-tools
+python scripts/doctor.py --competition mcm --skip-tools
+python scripts/doctor.py --competition diangong --skip-tools
+```
 
-## 实测
-
-| 模式 | Token | 耗时 | 适用 |
-|------|-------|------|------|
-| fast | ≤ 50k | ~30 min | 选题试跑 / sanity check |
-| standard (默认) | ≤ 200k | ~6h | 主流程 |
-| championship | ≤ 500k | ~12h | 提交前最后冲刺 (含 L3 panel + L4 校准 + red-team) |
-
-实测 cumcm fast 模式跑通一次约 30 min, 含 cwd/state/decision_log.json 写入和 panel 串行 5 视角. mcm 模式 1-page summary 与 Letter 部分需手工打磨, 自动产出仅作骨架.
-
----
-
-## 数据来源
-
-**CUMCM 91 篇真烘焙**:
-- 教育部"中国大学生在线"数学建模论文展廊 (2023-2025, 32 篇)
-- GitHub `zhanwen/MathModel/国赛论文/2023年优秀论文/` (58 篇, A-F 全)
-- GitHub `Jackyleo-Zhao/cumcm-2025` (1 篇国二 C 题)
-- 烘焙时间 2026-05-05; 91 篇 PDF 已存档不读, 仅蒸馏 markdown 与 `empirical.json`
-
-**MCM/ICM seed v0.1**:
-- COMAP 官方 scoring rubric (公开) + Outstanding Winner press release 总结段落
-- *MCM Tutorial* (Frank Giordano) 等已发表备赛教材共识
-
-**电工杯 seed v0.1**:
-- 电工杯官网历年题目题量分析
-- 中国电机工程学会公开论文评审标准 (工程类)
-
----
-
-## 开发日志
-
-- V1: 初次搭建, 10 阶段 + 4 反馈层
-- V2: 审计修了 20 条 (协议矛盾、schema 漂移、脚本 bug)
-- V3: 模板瘦身 + 91 篇 PDF 蒸馏成 4 份 markdown 后删除 PDF (释放 494MB)
-- V4: 三竞赛通用化 (`competitions/{cumcm,mcm,diangong}/`); 评分系统升级 — empirical 真正进入 L1 prompt; Stage 5 per-Qi 加权聚合 + 差异化降级 (`pass_with_review` / `refine_partial` 两个新 verdict); 题型 dim 权重 (`config/dim_weights.json`); SKILL.md 由 9k 字节瘦身到 ≤ 6k.
-- V5: harness-agnostic — 新增 `AGENTS.md` 作为 Codex CLI 入口, `references/harness_compat.md` 定义跨 harness 行为约定, `decision_log.json` 跨 Claude Code / Codex CLI 互通. Friendly Mode — 所有关键决策点 (选题/选模型/verdict/refine 决策) 强制问答式 (编号选项 + "让我决定" 兜底), 用户不再需要手敲 bash / python / 编辑 json. stage_00 / stage_01 / stage_05 已落实问答式样板, 其余 stage 由 SKILL.md 顶层协议统一约束.
-- **V6 (current)**: Codex-native packaging — 按 OpenAI Codex Skills / AGENTS.md / Plugins 官方形态补齐 `agents/openai.yaml`、`.codex-plugin/plugin.json` 与 `skills/mathmodel-skill/` plugin shim, README 改为 `.agents/skills/` 安装方式, `AGENTS.md` 降级为项目级 instructions shim, `references/harness_compat.md` 同步 Codex skill / plugin 发现协议. 运行时 workflow、评分脚本与 `decision_log.json` schema 保持兼容.
-
----
+工作流、模板或竞赛包发生变化时，请同步测试、版本和规则核对日期。贡献前先阅读 [`AGENTS.md`](./AGENTS.md)。Bug、规则变化和改进建议欢迎提交 Issue。
 
 ## License
 
-MIT. 蒸馏出的 markdown 是从公开论文统计模式与改写而来, 不含原文。
+本仓库原创代码、文档与三类竞赛装配模板采用 [MIT License](./LICENSE)。运行时依赖与外部资料链接仍受各自条款约束，边界说明见 [`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md)。
 
 ---
 
-学生作品, 发现 bug / 建议欢迎开 issue。
+好的工作流不会替团队思考。它只是让每一次思考都能被下一步接住。
