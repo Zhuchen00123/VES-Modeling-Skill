@@ -74,7 +74,7 @@ AskUserQuestion(questions=[{
 | 改文件 | `Edit(file_path=..., old_string=..., new_string=...)` | `apply_patch *** Update File` |
 | 查找 | `Glob` / `Grep` | `shell: rg ...` |
 
-**路径协议保持不变**: 无论哪个 harness, `cwd/state/decision_log.json` 就是 cwd 相对路径。
+**路径协议保持不变**: 无论哪个 harness, `<cwd>/state/decision_log.json` 都表示当前项目根目录下的 `state/decision_log.json`。
 
 ---
 
@@ -83,9 +83,9 @@ AskUserQuestion(questions=[{
 两个 harness 均有 shell 工具。脚本调用一致:
 
 ```bash
-python scripts/score_artifact.py --stage 5 --critique cwd/state/critique_v0.json
+python <skill>/scripts/score_artifact.py --stage 5 --critique state/critique_v0.json
 python scripts/extract_diff.py --artifact a.md --critique c.json --mode section
-python scripts/render_paper.py --workspace cwd/paper_workspace/
+python <skill>/scripts/render_paper.py --workspace paper_workspace/
 ```
 
 环境变量 `MATHMODEL_STATE_DIR` / `MATHMODEL_COMPETITION` 在两个 harness 下同样生效。
@@ -106,7 +106,7 @@ python scripts/render_paper.py --workspace cwd/paper_workspace/
 
 ## 5. 持久 state: harness 互通
 
-**核心保证**: `cwd/state/decision_log.json` 是 single source of truth, 跨 harness 完全兼容。
+**核心保证**: `<cwd>/state/decision_log.json` 是 single source of truth, 跨 harness 完全兼容。
 
 实际场景:
 - Day 1 用 Codex 跑 stage 0-2 → decision_log 写到 stage 2 完成
@@ -121,15 +121,15 @@ python scripts/render_paper.py --workspace cwd/paper_workspace/
 
 | harness | 推荐配置 |
 |---------|---------|
-| Claude Code | SKILL.md 的 frontmatter `description` 已含触发词: 建模/数模/CUMCM/国赛/MCM/ICM/美赛/电工杯/A题/B题/C题 |
-| Codex | 安装到 `.agents/skills/` 后由 `SKILL.md` description 隐式触发; `agents/openai.yaml` 提供 UI 展示和默认 prompt |
+| Claude Code | `SKILL.md` description 明确限定 CUMCM、MCM/ICM、电工杯及“数学建模竞赛论文”任务；仅说“建模”“A 题”或普通数据分析时不应触发 |
+| Codex | 安装到 `.agents/skills/` 后由同一 `SKILL.md` description 触发；`agents/openai.yaml` 提供 UI 展示和默认 prompt，原生选择 UI 不可用时才回退编号列表 |
 | Plugin | `.codex-plugin/plugin.json` 声明 `skills: "./skills/"` 并随 GitHub Release 分发 |
 
 ---
 
 ## 7. 验收 checklist (harness 适配是否做对)
 
-- [ ] 启动后, 不论 harness, 都立即问 5 个问题
+- [ ] 启动后，不论 harness，都收集同一组 5 个启动字段，但只询问当前消息与 state 中尚缺的字段
 - [ ] 所有"选 X" 决策点都呈现编号选项
 - [ ] decision_log.json schema 完全一致 (含 v6 兼容字段)
 - [ ] scripts/*.py 退出码与输出 JSON 一致

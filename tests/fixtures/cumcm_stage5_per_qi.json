@@ -6,13 +6,14 @@
     "review_qis": ["Q2"],
     "refine_qis": [],
     "weighted_min": 7,
-    "weighted_mean_approx": 8.17
+    "weighted_mean_approx": 8.13
   },
   "qi_results": [
     {
       "qi": "Q1",
       "min": 8,
-      "mean": 8.5,
+      "mean": 8.4,
+      "issues": [],
       "scores": {
         "1_problem_fit": {"score": 9},
         "2_math_rigor": {"score": 8},
@@ -25,6 +26,7 @@
       "qi": "Q2",
       "min": 7,
       "mean": 7.2,
+      "issues": [],
       "scores": {
         "1_problem_fit": {"score": 7},
         "2_math_rigor": {"score": 7},
@@ -37,6 +39,7 @@
       "qi": "Q3",
       "min": 8,
       "mean": 8.8,
+      "issues": [],
       "scores": {
         "1_problem_fit": {"score": 9},
         "2_math_rigor": {"score": 9},

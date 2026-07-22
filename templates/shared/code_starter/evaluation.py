@@ -2,7 +2,7 @@
 评价类 code starter — 对应论文 §5.x 综合评价
 适用: AHP / 熵权法 / TOPSIS / 模糊综合评价
 
-国赛黄金组合: AHP-熵权-TOPSIS (winning_patterns §4 命名变体: "AHP-熵权-TOPSIS 综合评价")
+常见组合示例: AHP-熵权-TOPSIS。仅在主客观权重与距离排序都符合题意时使用。
 """
 
 import numpy as np
@@ -53,28 +53,54 @@ def entropy_weights(X, indicator_types=None):
         X: (m, n) 评价矩阵, m 个对象, n 个指标
         indicator_types: list of "+" or "-", 长度 n. 默认全 "+" (正向)
     """
+    X = np.asarray(X, dtype=float)
+    if X.ndim != 2 or X.shape[0] == 0 or X.shape[1] == 0:
+        raise ValueError("X 必须是非空二维评价矩阵")
+    if not np.all(np.isfinite(X)):
+        raise ValueError("X 不能包含 NaN 或无穷大")
+
     m, n = X.shape
     if indicator_types is None:
         indicator_types = ["+" for _ in range(n)]
+    if len(indicator_types) != n or any(t not in {"+", "-"} for t in indicator_types):
+        raise ValueError("indicator_types 必须与指标数相同, 且只能包含 '+' 或 '-'")
 
     # 标准化
-    X_norm = X.copy().astype(float)
+    X_norm = np.empty_like(X, dtype=float)
+    col_min = X.min(axis=0)
+    col_max = X.max(axis=0)
+    spread = col_max - col_min
+    constant_mask = np.isclose(col_max, col_min, rtol=1e-12, atol=1e-12)
     for j in range(n):
-        if indicator_types[j] == "+":
-            X_norm[:, j] = (X[:, j] - X[:, j].min()) / (X[:, j].max() - X[:, j].min() + 1e-12)
+        if constant_mask[j]:
+            # 常数列对所有对象的信息完全相同, 其比例应为均匀分布。
+            X_norm[:, j] = 1.0
+        elif indicator_types[j] == "+":
+            X_norm[:, j] = (X[:, j] - col_min[j]) / spread[j]
         else:  # "-"
-            X_norm[:, j] = (X[:, j].max() - X[:, j]) / (X[:, j].max() - X[:, j].min() + 1e-12)
+            X_norm[:, j] = (col_max[j] - X[:, j]) / spread[j]
 
     # 计算比例
-    P = X_norm / (X_norm.sum(axis=0, keepdims=True) + 1e-12)
+    P = X_norm / X_norm.sum(axis=0, keepdims=True)
     # 熵
-    P_safe = np.where(P > 0, P, 1)
-    e = -1 / np.log(m) * (P * np.log(P_safe)).sum(axis=0)
+    if m == 1:
+        e = np.ones(n)
+    else:
+        P_safe = np.where(P > 0, P, 1)
+        e = -1 / np.log(m) * (P * np.log(P_safe)).sum(axis=0)
+        e = np.clip(e, 0.0, 1.0)
+    e[constant_mask] = 1.0
     # 差异系数
-    d = 1 - e
+    d = np.maximum(0.0, 1 - e)
+    d[constant_mask] = 0.0
     # 权重
-    weights = d / d.sum()
-    return {"weights": weights, "entropy": e}
+    if d.sum() <= 1e-12:
+        # 所有指标都无区分度时, 熵权本身无法区分它们;
+        # 用均匀权重作为可解释的中性退化策略。
+        weights = np.full(n, 1.0 / n)
+    else:
+        weights = d / d.sum()
+    return {"weights": weights, "entropy": e, "constant_mask": constant_mask}
 
 
 # ============================================================
@@ -114,7 +140,7 @@ def topsis(X, weights, indicator_types=None):
 
 
 # ============================================================
-# 4. AHP-熵权-TOPSIS 黄金组合 (winning_patterns §4 命名变体)
+# 4. AHP-熵权-TOPSIS 组合示例
 # ============================================================
 def ahp_entropy_topsis(X, judgment_matrix, indicator_types=None, alpha=0.5):
     """

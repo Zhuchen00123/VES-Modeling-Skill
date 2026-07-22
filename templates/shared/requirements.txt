@@ -1,4 +1,4 @@
-# CUMCM Skill Python 依赖 (在 stage 0 工具就绪检查时安装)
+# mathmodel-skill 可选完整 Python 依赖（按实际模型安装；核心工作流无需全量安装）
 # pip install -r requirements.txt
 
 # 核心计算
@@ -37,6 +37,7 @@ mesa>=2.1
 # PDF / 文档
 pdfplumber>=0.10
 pypdf>=3.17
+reportlab>=4.0       # render_ai_usage.py 生成 CUMCM AI 使用详情 PDF
 
 # Diff 处理 (extract_diff.py 的 unidiff 模式)
 unidiff>=0.7

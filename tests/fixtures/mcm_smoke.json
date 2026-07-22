@@ -6,14 +6,14 @@
   "iteration": 0,
   "variant": "stage_level",
   "scores": {
-    "1_candidate_diversity": {"score": 8, "evidence": "3 candidates: PDE / Markov / NN, structurally different"},
-    "2_selection_rationale": {"score": 8, "evidence": "each candidate has fit + reject reason"},
-    "3_naming_variant": {"score": 9, "evidence": "Time-Aware Bellman is novel extension"},
-    "4_solver_feasibility": {"score": 8, "evidence": "Gurobi available, runtime estimated < 5min"},
-    "5_literature_support": {"score": 7, "evidence": "3 references cited, 2 from past 3 years"}
+    "1_candidate_diversity": {"score": 8, "evidence": "A classical baseline and one structurally different alternative cover the plausible mechanisms; no third model was forced."},
+    "2_selection_rationale": {"score": 8, "evidence": "Each considered model has a problem-fit argument, a falsifier, and a recorded rejection or selection reason."},
+    "3_naming_variant": {"score": 9, "evidence": "The model name describes the actual time-varying constraint and makes no unsupported novelty claim."},
+    "4_solver_feasibility": {"score": 8, "evidence": "The required solver is available and a representative instance completed within the stage budget."},
+    "5_literature_support": {"score": 8, "evidence": "The formulation and key assumptions trace to the sources actually used."}
   },
-  "min_score": 7,
-  "mean_score": 8.0,
+  "min_score": 8,
+  "mean_score": 8.2,
   "issues": [],
   "verdict": "pass"
 }

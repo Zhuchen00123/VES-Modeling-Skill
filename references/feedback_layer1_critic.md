@@ -1,6 +1,6 @@
 # Feedback Layer 1 — 阶段级 Critic + diff-only 精修
 
-> 每阶段产出后立即触发。强制结构化 JSON 输出。预算: ~500 token/次评分, 最多迭代 3 次。
+> 每阶段产出后立即触发。强制结构化 JSON 输出；保持审查简洁，最多迭代 3 次。实际上下文与输出成本取决于 artifact 大小和问题数量。
 
 ---
 
@@ -45,7 +45,7 @@ Reference patterns (from `competitions/{competition}/winning_patterns.md`):
 Anti-patterns to check (from `competitions/{competition}/anti_patterns.md`):
 {relevant_anti_patterns}
 
-{empirical_hint}   # 见 §3.5, 评硬阈值时拉 competitions/{competition}/empirical.json 注入
+{empirical_hint}   # 见 §3.5；仅在存在真实语料时提供描述性样本参照
 
 Artifact:
 {artifact_content_or_path}
@@ -74,8 +74,8 @@ OUTPUT EXACTLY THIS JSON, NO OTHER TEXT:
     }
     // 0-5 个
   ],
-  "evidence_metrics": {            // 可选, 见 §3.5; 评硬阈值维度时填.
-    "abstract_chars": <int>,        // critic 实测的 artifact 摘要字数
+  "evidence_metrics": {            // 可选, 见 §3.5；用于打印描述性比较，不自动改分
+    "abstract_chars": <int>,        // critic 对当前 artifact 的测量值
     "formula_count": <int>,         // 公式数, 等等
     "figure_count": <int>,
     "reference_count": <int>
@@ -128,26 +128,42 @@ if iter == 3 and verdict in ("refine", "refine_partial"): → 标记 carryover, 
 
 此定义与 `SKILL.md` "收敛准则" / `rubrics.md` 阈值汇总 / `scripts/score_artifact.py compute_verdict` + `compute_stage5_verdict` **必须完全一致**。
 
-### 3.5. 实测分位注入协议 (empirical injection)
+### 3.5. 描述性样本参照协议
 
-L1 critic 评硬阈值维度时 (字数 / 公式数 / 图表数 / 引用数), evidence 字段不再写"推荐 600-900 字"这种估计值, 改注入 `competitions/<competition>/empirical.json` 的实测 p25/p50/p75:
+字数、公式数、图表数和引用标记数不是官方硬阈值。只有竞赛包拥有可追溯语料时，Critic 才能把 `empirical.json` 的分位数作为异常提示；分位数不能替代题目要求、内容完整性或人工判断。
 
-**critic 输入扩展**: `score_artifact.py` 在 evaluate 时若 critique 含 `evidence_metrics: {dim_key: value}`, 自动调用 `inject_evidence(dim_key, value, empirical, by_topic)`。
+当前边界：
 
-**注入格式**:
+- CUMCM：来源清单 91 份，其中 59 份进入文本提取统计；解析可能漏计或重复计数。
+- MCM/ICM：`empirical.json` 是无语料占位，不得引用其中任何数值。
+- 电工杯：`empirical.json` 是无语料占位，不得引用其中任何数值。
+
+加载门槛：
+
+```python
+source = empirical.get("source", {})
+if source.get("papers_extracted", 0) <= 0 or not empirical.get("dims"):
+    empirical_hint = ""  # 无语料；不向 Critic 提供任何分位数
 ```
-abstract_chars: value=720, p50=992, IQR=[748, 1146] (by topic A), status=低于 p25
+
+若 critique 含 `evidence_metrics: {dim_key: value}`，`score_artifact.py` 会调用 `inject_evidence(...)` 并在控制台打印比较结果。它不会自动修改 `scores[*].evidence`、分数或 verdict。
+
+**允许的说明格式**（仅 CUMCM 且注明样本边界）：
+
+```text
+abstract_chars: 当前值=720；59 份可提取样本 p50=992、p25-p75=[748,1146]；仅作异常提示
 ```
 
-种子版本 (mcm / diangong empirical.source.status="seed_v0.1") 自动追加 `[seed: 阈值未实测分位]` 标记, critic 见此应**弱化数值评判, 强化模式匹配**。
+**字段映射**（Stage 8 示例）：
 
-**字段映射** (示例 stage 8):
-| critic dim | empirical.json key | 由 by_topic 进一步细化 |
+| critic dim | empirical.json key | 注意 |
 |---|---|---|
-| 1_abstract_5_paragraph (字数维度) | abstract_chars | 是 (A/B/C/D/E/F) |
-| 3_formulas_figures_citations (公式数) | formula_count | 是 |
-| 3_formulas_figures_citations (图数) | figure_count | 是 |
-| 3_formulas_figures_citations (引用数) | reference_count | 否 |
+| 1_abstract_5_paragraph | abstract_chars | 旧键名保留；评价信息闭环，不要求五段 |
+| 3_formulas_figures_citations | formula_count | 数量不代表严谨性 |
+| 3_formulas_figures_citations | figure_count | 数量不代表证据质量 |
+| 3_formulas_figures_citations | reference_count | 当前提取可能统计重复引用，不等于条目数 |
+
+MCM/ICM 与电工杯的占位文件只用于保持包结构完整。Critic 应直接依据题目、官方规则和 artifact 证据评分，不输出占位分位或估算区间。
 
 ### 3.6. 题型加权协议 (task_type dim weights)
 
@@ -163,7 +179,7 @@ abstract_chars: value=720, p50=992, IQR=[748, 1146] (by topic A), status=低于 
 ```
 
 **示例** (cumcm/C_data, stage 6):
-> 本题为 cumcm/C_data, 重点考察: 多变量灵敏度 (×1.4), 输出完备性 (×1.2). 其他维度按默认 1.0 评估。
+> 本题为 cumcm/C_data, 重点考察: 验证设计与数据风险匹配 (×1.4), 输出完备性 (×1.2). 其他维度按默认 1.0 评估。旧维度键可保留，但不把多变量参数数量当作质量代理。
 
 权重 clamp 到 [0.7, 1.5] 防止过激扭曲分布。`task_type=default` 全 1.0, 等价老逻辑。
 
@@ -191,7 +207,7 @@ Output format:
 
 应用 diff 后得到 `artifact_v{i}`, 重新跑 critic。
 
-**Token 节省**: diff 通常 < 500 tokens, 远小于完整 artifact 的 5-20k。
+定向 diff 的目标是限制改动范围、便于审查与回滚。实际上下文和输出成本随问题范围变化，不承诺固定节省比例。
 
 ### 5. 与 anti_patterns.md 的联动
 
@@ -202,7 +218,7 @@ Critic 在 `issues` 数组中可以直接引用 anti_pattern ID:
   "severity": "high",
   "where": "§5.1.3 物理意义段",
   "anti_pattern_id": "E1",
-  "fix": "数值结果后增加 1 段现实含义讨论, 至少 80 字"
+  "fix": "解释该数值在题目语境中的意义、范围与限制"
 }
 ```
 
@@ -308,23 +324,33 @@ Critic 在 `issues` 数组中可以直接引用 anti_pattern ID:
 **Stage 5 per-Qi 加权聚合** (v3.0 新增): 当所有 per-Qi critic 跑完, 调用 `score_artifact.py --mode aggregate_qi --qi-results qi_results.json`:
 
 ```python
-# 输入: qi_results = [{qi: 'Q1', min: 8, mean: 8.5}, {qi: 'Q2', min: 7, mean: 7.2}, {qi: 'Q3', min: 8, mean: 8.8}]
-#      qi_weights = [1.0, 1.0, 1.0]   # 默认均匀, decision_log.stages.5.qi_weights 可定制
+# 每个 Qi 必须保留 issues；缺失 issues 时聚合器 fail-closed，避免高严重度问题被均分掩盖。
+qi_results = [{
+    "qi": "Q1",
+    "min": "由五维 scores 重算",
+    "mean": "由五维 scores 重算",
+    "scores": "可选的五维明细",
+    "issues": [{"severity": "high|medium|low", "where": "...", "fix": "..."}]
+}]
+# qi_weights 默认均匀；非均匀权重必须有题面依赖或团队预算依据。
 # 聚合规则:
-weighted_mean = Σ(qi.mean × weight) / Σ(weight)   # 8.17
-weighted_min  = min(qi.min for qi in qi_results)  # 7
+weighted_mean = Σ(qi.mean × weight) / Σ(weight)
+weighted_min  = min(qi.min for qi in qi_results)
 # Qi 状态判定:
 for qi in qi_results:
-    if qi.min >= 7 and qi.mean >= 8: qi.status = "pass"
+    if any(issue.severity == "high"): qi.status = "block"
+    elif qi.min >= 7 and qi.mean >= 8: qi.status = "pass"
     elif qi.min >= 7:                qi.status = "mark_for_review"   # 该 Qi 需复核
     else:                            qi.status = "refine"            # 该 Qi 需重做
 # verdict 决策:
-if any(refine):       verdict = "refine_partial"   # 只 refine 标记 Qi, 不动其他
+if any(block):        verdict = "block"
+elif all(refine):     verdict = "refine"           # 共享基础或整阶段需要回修
+elif any(refine):     verdict = "refine_partial"   # 只 refine 标记 Qi, 保留其他 Qi
 elif any(review):     verdict = "pass_with_review" if weighted 满足阈值 else "refine"
 else:                 verdict = "pass"             # 全 Qi pass, 进 stage 6
 ```
 
-**差异化降级**: per-Qi mark_for_review 不阻塞其他 Qi (即"Q2 单独 refine 不动 Q1/Q3"), 显著优于老的"全 stage 平均掩盖单 Qi 弱点"。
+**差异化降级**: 单个 Qi 的中低严重度问题可以定向回修；任何 high-severity issue 先 block，所有 Qi 都失败时回修共享基础，不能用全 stage 均分掩盖。
 
 #### Stage 6
 ```json
@@ -336,7 +362,7 @@ else:                 verdict = "pass"             # 全 Qi pass, 进 stage 6
   "5_failure_warning": {...}
 }
 ```
-关键: F1-F4
+关键: F1-F4。`1_multivariate_perturbation` 是兼容旧状态的键名；评分内容是验证设计是否匹配核心风险。单参数、联合扰动、重采样、数据留出或情景分析都可以在有依据时得高分。
 
 #### Stage 7
 ```json
@@ -381,7 +407,7 @@ else:                 verdict = "pass"             # 全 Qi pass, 进 stage 6
 - **JSON 必须可解析**: 用 Python `json.loads` 验证
 - **issues 长度 ≤ 5**: 太多说明需要回 stage 重做, 不是精修
 - **iteration cap = 3**: 第 4 次直接 carryover
-- **early exit at iter-1 ≥ 9**: 多数阶段会触发, 节省 token
+- **early exit at iter-1 ≥ 9**: 满足确定性阈值时停止继续精修；不假设多数阶段都会触发
 - **block 必须人工介入**: Skill 暂停, 输出 issues 等用户确认
 
 ---

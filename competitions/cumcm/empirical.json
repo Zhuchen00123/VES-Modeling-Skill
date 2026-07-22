@@ -1,5 +1,5 @@
 {
-  "_doc": "国赛 CUMCM 一等奖论文实测分位 (p25/p50/p75)。L1 Critic 评硬阈值维度时由 score_artifact.py 注入到 evidence 字段。源文档: empirical_notes.md。",
+  "_doc": "CUMCM 公开样本中 59 份可提取文本的观察分位 (p25/p50/p75)；来源清单共 91 份。仅用于异常提示，不是官方阈值或获奖预测。",
   "competition": "cumcm",
   "source": {
     "papers_total": 91,
@@ -7,7 +7,7 @@
     "year_range": "2023-2025",
     "baked_at": "2026-05-05",
     "baker": "scripts/ingest_papers.py",
-    "status": "stable"
+    "status": "observational_v1"
   },
   "dims": {
     "doc_chars_total":      {"p25": 18684, "p50": 22961, "p75": 27147, "min": 12480, "max": 75915, "mean": 24474.3, "unit": "char"},
@@ -26,7 +26,7 @@
     "abstract_quantitative_ratio": 0.627,
     "abstract_5seg_full_hit_ratio": 0.271,
     "abstract_5seg_partial_hit_ratio": 0.729,
-    "_note": "一等奖应 ≥80% 含定量结果 (anti_pattern A1 阈值)。partial 命中 ≥3 anchor"
+    "_note": "仅描述解析器命中率。定量结果应可追溯；anchor 数与奖项无确定关系。"
   },
   "by_topic": {
     "A": {"doc_chars_zh": {"p25": 14729, "p50": 16758, "p75": 20604}, "main_section_count": {"p25": 3, "p50": 5, "p75": 7}, "figure_count": {"p25": 5, "p50": 8, "p75": 9},  "table_count": {"p25": 2, "p50": 4, "p75": 4},  "formula_count": {"p25": 7,  "p50": 11, "p75": 67}},

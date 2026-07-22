@@ -2,8 +2,7 @@
 仿真类 code starter — 对应论文 §5.x 仿真 / §6 灵敏度
 适用: 蒙特卡罗 / 拉丁超立方采样 (LHS) / 系统动力学 ODE / Agent-based
 
-国赛超高频: 与灵敏度分析联用 (winning_patterns §7 多变量联合扰动)
-变体名建议: "拉丁超立方蒙特卡罗稳健性仿真"
+这是可改写的实现起点，不是竞赛加分配方。只有当参数分布、扰动范围、样本量与当前问题有依据时，才使用相应方法；模型名称应准确描述实际实现。
 """
 
 import numpy as np
@@ -39,7 +38,7 @@ def monte_carlo(simulator, n_samples=1000, **distributions):
 
 
 # ============================================================
-# 2. 拉丁超立方采样 LHS  ⭐ 一等奖标配
+# 2. 拉丁超立方采样 LHS（适用于需要覆盖多维参数空间的场景）
 # ============================================================
 def lhs_sampling(d, n, bounds=None, seed=42):
     """
@@ -72,6 +71,7 @@ def joint_sensitivity_lhs(simulator, baseline_params, perturbation_levels=None, 
         dict {level: {"samples": ndarray, "outputs": ndarray, "stats": dict}}
     """
     if perturbation_levels is None:
+        # 示例默认值；实际使用时应由历史波动、测量误差或业务边界替换。
         perturbation_levels = [0.05, 0.10, 0.20]
 
     param_names = list(baseline_params.keys())
@@ -99,7 +99,7 @@ def joint_sensitivity_lhs(simulator, baseline_params, perturbation_levels=None, 
 
 
 # ============================================================
-# 3. Sobol 全局灵敏度 (championship 升级)
+# 3. Sobol 全局灵敏度（存在参数交互且样本预算允许时选用）
 # ============================================================
 def sobol_indices(simulator, param_names, baseline_params, n_samples=1024):
     """
@@ -127,11 +127,11 @@ def sobol_indices(simulator, param_names, baseline_params, n_samples=1024):
 
 
 # ============================================================
-# 4. ODE 系统仿真 (e.g., 改进 SEIR, 国赛传染病题)
+# 4. ODE 系统仿真示例（带隔离移除项的 SEIR）
 # ============================================================
 def seir_with_quarantine(t, y, beta, sigma, gamma, kappa):
     """
-    改进 SEIR 含潜伏期与隔离 (winning_patterns §4 命名变体)
+    SEIR 示例：感染者以 kappa 速率进入移除状态。
 
     y = [S, E, I, R]
     """
@@ -201,7 +201,7 @@ def plot_tornado(sobol_result, output_label="目标函数"):
     ax.set_yticks(y)
     ax.set_yticklabels(names)
     ax.set_xlabel("Sobol 灵敏度指数")
-    ax.set_title(f"{output_label} 单参数灵敏度排序")
+    ax.set_title(f"{output_label} Sobol 灵敏度指数")
     ax.legend()
     plt.tight_layout()
     return fig
@@ -223,7 +223,7 @@ if __name__ == "__main__":
     ax.plot(result["t"], result["R"], label="康复 R")
     ax.set_xlabel("时间 (天)")
     ax.set_ylabel("人数")
-    ax.set_title("改进 SEIR 模型仿真")
+    ax.set_title("带隔离移除项的 SEIR 模型仿真")
     ax.legend()
     plt.tight_layout()
     plt.savefig("figures/simulation_seir.png", dpi=300)

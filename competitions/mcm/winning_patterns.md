@@ -1,82 +1,47 @@
-<!-- SEED v0.1 — 基于 COMAP 公开 scoring rubric + Outstanding Winner press release 总结手写, 未做 PDF 烘焙。 -->
+<!-- SEED v0.2 — maintainer guidance, not a measured winner corpus. -->
 
-# MCM/ICM Outstanding Winner 共性 (SEED v0.1)
+# MCM/ICM high-quality submission patterns (SEED v0.2)
 
-> 美赛 Outstanding (~1%) 与一般 Honorable Mention 的 10 个差距。每条与 stage 文件 / rubric 维度对齐。
+> These are review prompts, not COMAP scoring rules or award predictors. The pack has no measured paper corpus. `current_rules.md` and the current problem always take precedence.
 
----
+## 1. Make the Summary Sheet a result map
 
-## 1. **1-page Summary 抓人**
+State the problem, decomposition, actual methods, decision-relevant results, validation, and one material limitation. Every headline value should point to a body table, figure, equation, or saved result.
 
-Outstanding 的 summary 几乎都包含: (a) one-sentence problem framing, (b) approach in 2-3 sentences, (c) ≥3 quantitative results with units, (d) one bold takeaway. **避免**通用的 "we built a model and got results"。
+## 2. Explain contribution with evidence
 
-`stage 8 / rubric §8 dim1`
+Describe what changed relative to a baseline or standard formulation and why it was needed. A well-supported classical method is acceptable; do not manufacture novelty by renaming a model or combining unrelated methods.
 
-## 2. **Novel Approach 显式标注**
+## 3. Match validation to model risk
 
-Outstanding 论文显式声明 "Our novel contribution is...", 不只是用经典模型。组合 ≥2 个学科方法 (e.g., game theory + ODE), 或对经典算法做命名扩展 ("Adaptive-Threshold k-means")。
+Prediction needs out-of-sample evidence, optimization needs feasibility and baseline checks, simulation needs repeated runs and uncertainty, and sensitive coupled parameters may need joint perturbation. No single sensitivity technique is mandatory for every problem.
 
-`stage 3 / rubric §3 dim3`
+## 4. Treat special deliverables as part of the argument
 
-## 3. **Sensitivity 是独立大节**
+When the current prompt requires a letter, memo, or other artifact, write for its intended reader and preserve the same evidence and caveats as the technical solution. Do not infer a letter requirement from the problem letter alone.
 
-不是塞在 conclusion 里一句话。Outstanding 通常 1-2 页专门做 multivariate 扰动 + tornado plot + robust interval。OAT (one-at-a-time) 不够。
+## 5. Connect disciplines only when the problem connects them
 
-`stage 6 / rubric §6 dim1`
+An interdisciplinary framing is useful when it adds variables, constraints, mechanisms, or stakeholder trade-offs that alter the analysis. Decorative terminology does not improve the model.
 
-## 4. **Letter / Memo (D/E/F 题) 单独打磨**
+## 6. Preserve a reproducibility path inside the page budget
 
-不只把正文摘要复制到 Letter。Outstanding Letter 改用非技术语言, 提 3 个 actionable recommendations, 1 页内, 含 stakeholder 视角。
+Identify data provenance, parameter sources, environment, key algorithms, seeds, and an entry command or compact pseudocode. Include only code needed to verify the claims under the current submission rules.
 
-`stage 8`
+## 7. Write limitations as affected conclusions
 
-## 5. **跨学科 / 创意 framing**
+For each material limitation, say which result it affects, what evidence revealed it, what alternative could address it, and what new data or computation would be required. Estimate improvement only when an experiment supports the estimate.
 
-ICM 的 D/E/F 题 Outstanding 常引入社会学 / 经济学 / 公共政策视角。把数学建模放在更大问题语境里, 不只是数学优化。
+## 8. Give every figure a job
 
-`stage 1 / stage 7`
+A figure should explain data, a mechanism, a result, a comparison, uncertainty, or a failure boundary. Captions define axes/units and state the takeaway; figure counts are not a quality target.
 
-## 6. **Reproducibility 完整**
+## 9. Compare like with like
 
-Appendix 含 (a) full code listing, (b) data source URL/DOI, (c) parameter values table, (d) software environment。Outstanding 论文允许任意第三方复现。
+Baselines must share the same data, objective, constraints, evaluation window, and units. Report absolute values alongside percentages and explain any trade-off the comparison hides.
 
-`stage 8 / stage 9`
+## 10. Prefer precise English to promotional English
 
-## 7. **Strengths and Weaknesses 真实**
+Use consistent terms and calibrated verbs (`suggests`, `supports`, `demonstrates under...`). Remove unsupported superlatives, verify citations, and make claims no broader than the tested conditions.
 
-≥3 条具体局限 + ≥1 条改进路线 (含 alternative method 名 + 改进幅度估计 + 计算成本估计)。不写 "could be improved with more data"。
-
-`stage 7 / rubric §7 dim2`
-
-## 8. **Visual: 每个 model / sub-problem 有自己的图**
-
-Outstanding 平均 14+ 图, 含: model schematic / data exploration / result main figure / sensitivity tornado / comparison to baseline。每图有 self-contained caption。
-
-`stage 5 / stage 8`
-
-## 9. **Quantified Comparison to Baseline**
-
-不只声明 "our method is better"。报 "our method reduces cost by 23.4% compared to greedy baseline (Table 5), and is 1.7× faster than LP relaxation"。
-
-`stage 5 / stage 7`
-
-## 10. **English Writing Quality**
-
-主谓一致 / 过去分词 / 学术 hedging ("suggests" vs "proves") 都到位。Outstanding 不一定 native English, 但 grammar error 极少且术语精确。
-
-`stage 8 / rubric §8 dim3`
-
----
-
-## 评估锚点 (L1 critic 用)
-
-| 锚点 | 评估方式 |
-|------|---------|
-| Summary 含 ≥3 quantitative results | 正则: `\d+(\.\d+)?%?` 在 summary 段计数 |
-| 主章节 ≥7 | markdown `^## ` 计数 |
-| Sensitivity 单独大节 | 章节标题含 sensitivity / robustness |
-| Letter (D/E/F) 存在 | 文档含 `## Letter` 或 `## Memo` |
-| Code listing 在附录 | appendix 含 lstlisting / verbatim |
-| ≥3 真实 limitations | stage 7 strengths_weaknesses 段落 ≥3 句 with specifics |
-
-种子版本: 后续 PDF 烘焙后会用真分位替换上述阈值。
+Use these patterns to ask better review questions. Do not turn them into fixed section, word, figure, reference, or recommendation counts.

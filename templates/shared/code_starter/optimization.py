@@ -132,7 +132,70 @@ def genetic_algorithm(fitness, n_vars, bounds, n_pop=100, n_gen=200,
 
 
 # ============================================================
-# 5. Sanity check 套件 (anti_pattern D2)
+# 5. 可行贪心基线
+# ============================================================
+def greedy_budget_baseline(p, c, B, x_max=50):
+    """按单位成本利润从高到低分配预算, 返回可行的整数基线。
+
+    与“每个产品都单独使用整份预算”不同, 本基线在所有产品间
+    共享同一个剩余预算, 因此始终满足 ``c @ x <= B``。
+    """
+    p = np.asarray(p, dtype=float)
+    c = np.asarray(c, dtype=float)
+    if p.ndim != 1 or c.ndim != 1 or p.shape != c.shape:
+        raise ValueError("p 和 c 必须是形状相同的一维数组")
+    if not np.all(np.isfinite(p)) or not np.all(np.isfinite(c)):
+        raise ValueError("p 和 c 必须全部为有限数")
+    if np.any(c < 0):
+        raise ValueError("成本 c 不能为负数")
+    if not np.isfinite(B) or B < 0:
+        raise ValueError("预算 B 必须是非负有限数")
+
+    if np.isscalar(x_max):
+        caps = np.full(len(p), x_max, dtype=float)
+    else:
+        caps = np.asarray(x_max, dtype=float)
+        if caps.shape != p.shape:
+            raise ValueError("数组形式的 x_max 必须与 p 形状相同")
+    if (not np.all(np.isfinite(caps)) or np.any(caps < 0)
+            or not np.all(caps == np.floor(caps))):
+        raise ValueError("x_max 必须是非负整数")
+    caps = caps.astype(int)
+
+    margin = p - c
+    x = np.zeros(len(p), dtype=int)
+
+    # 零成本且正利润的产品不消耗预算, 可直接取上限。
+    free_profitable = (c == 0) & (margin > 0)
+    x[free_profitable] = caps[free_profitable]
+
+    candidates = np.flatnonzero((c > 0) & (margin > 0) & (caps > 0))
+    ratios = margin[candidates] / c[candidates]
+    # 先比单位成本利润, 同比率时先选单件利润更高者。
+    order = candidates[np.lexsort((-margin[candidates], -ratios))]
+
+    remaining = float(B)
+    for i in order:
+        affordable = int(np.floor(remaining / c[i] + 1e-12))
+        quantity = min(caps[i], max(0, affordable))
+        # 抵消浮点数据刚好在整数边界时可能的越界。
+        while quantity > 0 and quantity * c[i] > remaining + 1e-10:
+            quantity -= 1
+        x[i] = quantity
+        remaining -= quantity * c[i]
+
+    budget_used = float(c @ x)
+    if budget_used > B + 1e-8:
+        raise RuntimeError("贪心基线产生了不可行解")
+    return {
+        "x_star": x,
+        "obj": float(margin @ x),
+        "budget_used": budget_used,
+    }
+
+
+# ============================================================
+# 6. Sanity check 套件 (anti_pattern D2)
 # ============================================================
 def sanity_check(result, expected_range=None, baseline=None):
     """
@@ -148,12 +211,12 @@ def sanity_check(result, expected_range=None, baseline=None):
         x = result["x_star"]
         checks["range_ok"] = bool(np.all((x >= expected_range[0]) & (x <= expected_range[1])))
     if baseline is not None:
-        checks["beats_baseline"] = result["obj"] > baseline
+        checks["beats_baseline"] = result["obj"] >= baseline - 1e-9
     return checks
 
 
 # ============================================================
-# 6. 主流程示例 (Q1 求解, 对应论文 §5.1)
+# 7. 主流程示例 (Q1 求解, 对应论文 §5.1)
 # ============================================================
 if __name__ == "__main__":
     # 加载数据 (示例数据, 实际从附件读)
@@ -169,10 +232,15 @@ if __name__ == "__main__":
     print(f"Q1 求解时间: {result['solve_time_s']:.2f} s")
 
     # Sanity check
-    baseline_profit = ((p - c) * np.minimum(50, B // np.maximum(c, 1))).sum()
+    baseline_result = greedy_budget_baseline(p, c, B, x_max=50)
+    baseline_profit = baseline_result["obj"]
     checks = sanity_check(result, expected_range=(0, 50), baseline=baseline_profit)
     print(f"Sanity checks: {checks}")
-    print(f"相对贪心 baseline 提升: {(result['obj'] - baseline_profit) / baseline_profit * 100:.2f}%")
+    if abs(baseline_profit) > 1e-12:
+        improvement = (result["obj"] - baseline_profit) / abs(baseline_profit) * 100
+        print(f"相对贪心 baseline 提升: {improvement:.2f}%")
+    else:
+        print("相对贪心 baseline 提升: baseline 为 0, 不计算百分比")
 
     # 保存结果 (供 stage 6 灵敏度复用)
     np.save("results/Q1_x_star.npy", result["x_star"])

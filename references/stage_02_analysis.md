@@ -2,10 +2,14 @@
 stage: 2
 name: analysis
 duration_h: 2-3
-inputs: [stage.1.selected, problem_pdf, attachment_data_paths]
-outputs: [stage.2.{decomposition, key_variables, key_constraints, objective_per_subproblem, data_schema, subproblem_dependency}]
-loads_reference: [rubrics.md§Stage_2]
-feedback: [L1]
+inputs:
+  - "stage.1.selected"
+  - "problem_pdf"
+  - "attachment_data_paths"
+outputs:
+  - "stage.2.{decomposition, key_variables, key_constraints, objective_per_subproblem, data_schema, subproblem_dependency}"
+loads_reference: ["references/rubrics.md§Stage_2"]
+feedback: ["L1"]
 next: stage_03_model_selection
 ---
 
@@ -29,8 +33,8 @@ next: stage_03_model_selection
 
 ## 产出
 
-- 子问题分解树 (Q1/Q2/Q3 的输入/输出/约束/目标)
-- 关键变量清单 (≥10 个,标注决策/状态/参数)
+- 子问题分解树 (全部 Qi 的输入/输出/约束/目标)
+- 关键变量清单 (覆盖实际模型所需变量并标注决策/状态/参数；不设凑数下限)
 - 子问题间关联图 (谁依赖谁的结果)
 - 目标函数雏形 (符号级,不必精确)
 - 数据 schema 与变量映射
@@ -71,8 +75,7 @@ Q1 卡片
 └── 难度估计: easy / medium / hard
 ```
 
-**关键**: Q3 卡片的"上游依赖"列必须明确写: 是否依赖 Q1 / Q2 结果?
-若题目允许且没明示,**默认要求 Q3 复用 Q1/Q2 结果** (winning_patterns §5)。
+**关键**: 每张 Qi 卡片的“上游依赖”列必须明确写依赖哪些结果。只有题面、数学接口或业务机制支持时才建立依赖；“题目未禁止”不构成复用证据。没有合理依赖时写“无”，并保留理由。
 
 ### Step 3: 关键变量统一编号 (30 min)
 
@@ -90,7 +93,7 @@ Q1 卡片
 | ... |
 ```
 
-≥10 个变量。
+只收录在目标、约束、数据映射或验证中实际使用的变量；缺少必要变量要补齐，无用途变量要删除。
 
 ### Step 4: 数据 schema 扫描 (30 min)
 
@@ -108,10 +111,10 @@ print(df.isnull().sum())
 输出 schema 卡片:
 ```
 附件 1 (xlsx):
-- 行数: 1234, 列数: 8
-- 时间跨度: 2020-01 ~ 2024-12 月度
-- 缺失: 列 "需求量" 缺失 5%
-- 异常: 列 "价格" 有 3 个 outlier (>3σ)
+- 行数/列数: `<由扫描结果写入>`
+- 时间跨度: `<由原始字段计算>`
+- 缺失: `<列名、计数与比例；不得预填>`
+- 异常: `<检测口径与实际命中；不得预填>`
 - 与变量映射: p_i ← 列 "价格", d_i ← 列 "需求量"
 ```
 
@@ -120,13 +123,11 @@ print(df.isnull().sum())
 以 mermaid / ASCII 表达:
 
 ```
-Q1 (求最优生产计划) 
-  ↓ x_i*
-Q2 (考虑库存约束)
-  ↓ 库存阈值 K*
-Q3 (随机需求下的稳健决策)
-  ↓ 引用 Q1 的 x_i* 与 Q2 的 K* 
-最终: 决策方案 + 风险评估
+<上游 Qi> (<任务>)
+  ↓ <有证据支持的输出接口>
+<下游 Qj> (<任务>)
+  ↓ <有证据支持的输出接口>
+最终: <题面要求的交付>
 ```
 
 写入 `decision_log.stages.2.decomposition`。
@@ -142,8 +143,8 @@ Q1: max  Σ_i p_i * x_i  - C(x)
 
 Q2: 在 Q1 基础上加约束 K_i ≤ K_max
     
-Q3: max E_ξ [ Σ_i p_i * x_i - C(x) - λ * Var(...) ]
-    使用 Q1 的 x* 作为 warm start
+Qi: <与该子问题匹配的符号化目标>
+    若使用上游结果或 warm start，注明接口与依据；否则保持独立
 ```
 
 ### Step 7: 输出移交 (5 min)
@@ -154,9 +155,9 @@ Q3: max E_ξ [ Σ_i p_i * x_i - C(x) - λ * Var(...) ]
   "decomposition": [...],
   "key_variables": [...],
   "key_constraints": [...],
-  "objective_per_subproblem": {"Q1": "...", "Q2": "...", "Q3": "..."},
+  "objective_per_subproblem": {"<Qi>": "..."},
   "data_schema": {...},
-  "subproblem_dependency": {"Q1": [], "Q2": ["Q1"], "Q3": ["Q1", "Q2"]}
+  "subproblem_dependency": {"<Qi>": ["<only evidence-backed upstream IDs>"]}
 }
 ```
 
@@ -167,10 +168,10 @@ Q3: max E_ξ [ Σ_i p_i * x_i - C(x) - λ * Var(...) ]
 | 维度 | 满分行为 |
 |------|---------|
 | 1. 子问题分解清晰度 | 每 Qi 卡片完整 |
-| 2. 关键变量识别 | ≥10,标注类型 |
+| 2. 关键变量识别 | 覆盖目标、约束与数据接口，标注类型，无占位变量 |
 | 3. 数学化程度 | 每 Qi 有目标雏形 |
 | 4. 数据契合度 | schema 已扫,变量映射清楚 |
-| 5. 子问题关联性 | Q3 是否依赖 Q1/Q2 已识别 |
+| 5. 子问题关联性 | 每个 Qi 的依赖或独立理由均已识别 |
 
 ---
 
@@ -179,16 +180,16 @@ Q3: max E_ξ [ Σ_i p_i * x_i - C(x) - λ * Var(...) ]
 - 题目仅读一次就开干 → 强制读 3 遍
 - 子问题间符号不统一 (B4) → 统一变量表
 - 附件数据没扫 → strictly 必做 Step 4
-- Q3 没考虑复用 Q1/Q2 (G1) → Step 2 卡片"上游依赖"列硬要求
+- 为了“串起来”强行复用上游结果 (G1) → 只保留题面、数学或业务机制支持的依赖
 
 ---
 
 ## 退出条件
 
-1. 三个子问题卡片完整
-2. 全局变量表 ≥10 项
+1. 题面中的全部子问题卡片完整
+2. 全局变量表覆盖后续模型实际所需项且无凑数项
 3. 数据 schema 扫描完成
-4. Q3 复用关系明确 (是 / 否,有理由)
+4. 每个 Qi 的依赖关系明确 (依赖 / 独立,均有理由)
 5. L1 rubric 全维 ≥7
 
 → 跳转 `stage_03_model_selection.md`

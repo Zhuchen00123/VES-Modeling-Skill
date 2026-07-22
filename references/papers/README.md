@@ -1,50 +1,34 @@
-# 论文资料库 (papers)
+# 论文样本维护区
 
-> 本目录是**辅助参考资料**, skill 主体不依赖这里的内容运行。`references/winning_patterns.md` 已经从公开渠道一次性提炼了一等奖共性, 写入静态知识。
+> 本目录只用于维护者离线更新描述性统计。运行时工作流不读取原始 PDF，也不需要此目录存在。
 
-## 当前内容
+## 当前口径
 
-可能包含通过 git clone 拉取的开源仓库:
-- `MathModel/` (zhanwen): 历年题目分类 + 算法资料
-- `Math_Model_repo/` (personqianduixue): LaTeX 模板 + 算法仓 (论文在百度云,GitHub 仅索引)
+- 来源清单记录 91 份公开可访问的 CUMCM 论文文件。
+- 其中 59 份满足当前文本提取条件并进入统计。
+- 其余 32 份主要是图片型 PDF，未进入文本分位计算。
+- 详细来源数量与抽检边界见 [`_DOWNLOAD_REPORT.md`](./_DOWNLOAD_REPORT.md)。
 
-## 如何手动补充
+这些数字描述的是归档样本和当前提取器，不代表完整获奖论文总体。来源标签、题型分布、年份和 PDF 可提取性都可能带来偏差。
 
-直接下载渠道有限, 优先级如下:
+## 更新流程
 
-### 1. 教育部"中国大学生在线"展厅 (官方公开)
-- URL: https://dxs.moe.gov.cn/zx/hd/sxjm/sxjmlw/
-- 操作: 浏览器手动进入 → 选年份 → 选题号 → 下载 PDF → 投放到本目录
-- 优势: 官方权威, 都是真实一等奖
-- 限制: 每年仅展出极少 (3-5 篇/题)
+仅处理你有权访问和分析的文件，并保留来源、年份、题号与使用条件。不要把原始论文 PDF 提交到本仓库。
 
-### 2. GitHub 公开 repo
-搜索 keyword:
-- "CUMCM" / "数学建模" / "国一"
-- "national first prize" math modeling
-- 历年获奖学校的个人 repo (如中山大学、清华、上交)
+```bash
+python -m pip install -r scripts/requirements-maintenance.txt
 
-### 3. CSDN / 知乎 / B 站
-质量参差, 但有汇总贴。例:
-- https://blog.csdn.net/qq_37345758/article/details/134295998 (2023 国赛)
-- https://blog.csdn.net/2401_86936045/article/details/141719882 (历年汇总, 国一学长整理)
+python scripts/ingest_papers.py \
+  --papers-dir /path/to/authorized-papers \
+  --output /tmp/empirical_distribution.md
+```
 
-CSDN 会要求注册或下载券, 注意辨别真伪。
+更新后必须人工检查：
 
-### 4. 数模社 / 数模君 / 数学建模交流群
-非官方, 但可能有更多。需付费或加群。
+1. 来源数量与成功提取数量是否分别记录；
+2. 图片型、乱码和正文过短文件是否被排除；
+3. 年份与题型构成是否造成明显偏差；
+4. 分位数是否只被描述为样本观察，而非官方阈值；
+5. `competitions/cumcm/empirical.json`、说明文档与测试是否同步。
 
-## 使用方法
-
-收集到 PDF 后:
-1. 投放到本目录 (任意子目录)
-2. 跑 `python scripts/ingest_papers.py --papers-dir references/papers/`
-3. 脚本会输出: 字数 / 章节数 / 图表 / 公式 / 摘要含定量结果比例 等统计
-4. 把统计结果与 `references/winning_patterns.md` 中的预设阈值对照
-5. 若实测显著不同, 手动更新 `winning_patterns.md`
-
-## 重要提示
-
-skill 运行时**不读**这里的 PDF (避免污染上下文 + token 浪费)。
-本目录内容只在你想**手动补充/更新模式**时使用。
-即使本目录为空, skill 仍可完整运行。
+下载与提取工具的依赖、参数和限制见 [`../../scripts/README.md`](../../scripts/README.md)。

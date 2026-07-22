@@ -2,347 +2,132 @@
 stage: 8
 name: writing
 duration_h: 12-30
-inputs: [decision_log.stages.0-7, decision_log.competition, decision_log.task_type]
-outputs: [stage.8.{section_word_counts, figures_per_subproblem, tables_per_subproblem, abstract_drafts, anchor_phrase_hits, danger_phrase_hits}, paper.tex]
-loads_reference: [competitions/<competition>/winning_patterns.md, competitions/<competition>/phrase_bank.md, competitions/<competition>/anti_patterns.md, competitions/<competition>/empirical.json]
-loads_template: [competitions/<competition>/paper_skeleton.md, competitions/<competition>/abstract_template.md, templates/latex/<competition>/]
-feedback: [L1, L2_at_end]
+inputs: ["decision_log.stages.0-7", "decision_log.competition", "decision_log.task_type"]
+outputs:
+  - "stage.8.{section_word_counts, figures_per_subproblem, tables_per_subproblem, abstract_drafts, ai_use_log, compliance}"
+  - "paper_workspace/*.md"
+  - "paper.tex"
+loads_reference:
+  - "competitions/<competition>/current_rules.md"
+  - "competitions/<competition>/winning_patterns.md"
+  - "competitions/<competition>/phrase_bank.md"
+  - "competitions/<competition>/empirical.json"
+loads_template:
+  - "competitions/<competition>/paper_skeleton.md"
+  - "competitions/<competition>/abstract_template.md"
+  - "templates/latex/<competition>/"
+feedback: ["L1", "L2_at_end"]
 next: stage_09_review
 ---
 
-# Stage 8 — 论文写作 (摘要最后写)
+# Stage 8 — Assemble the paper
 
-**时长**: 12-30h (cumcm 12-16 / mcm 25-30 / diangong 16-20) | **反馈层**: L1 | **占整个 skill 时间约 25-30%**
+Turn the validated Stage 0–7 outputs into one coherent paper. Do not invent new results while writing. If the paper exposes a modeling contradiction, record it and trigger a targeted L2 backtrack.
 
----
+## 1. Lock the current rules first
 
-## 目标
+1. Read `competitions/<competition>/current_rules.md` when present.
+2. Open the linked official rules and confirm they are still current for the contest year.
+3. Record the verification date, source URL, page/font/file-size limits, anonymity rules, and AI-disclosure requirements in `decision_log.compliance.ruleset`.
+4. If the repository baseline conflicts with the official source, follow the official source and flag the repository mismatch.
 
-把前面 0-7 阶段的产出**装配**成最终论文。**不重新建模, 不重新求解** (若发现需要, 触发 L2 而非自行回退)。页数与摘要风格按 competition 分支:
-- cumcm: 22-25 页, 5 段式摘要 600-1200 字 (中文)
-- mcm: 25-40 页, 1-page Summary 250-350 词 + Letter (D/E/F)  (英文)
-- diangong: 25-30 页, 4 段式摘要 600-1000 字 (中文工程)
+Do not treat empirical distributions, `winning_patterns.md`, or rubric scores as official rules. They are writing aids only.
 
----
+## 2. Load only the active competition pack
 
-## 输入
+Read from `competitions/<competition>/`:
 
-- stage 0-7 全部 decision_log 内容
-- **按 competition 加载** (路径: `<skill>/competitions/<decision_log.competition>/`):
-  - `paper_skeleton.md` (论文骨架)
-  - `abstract_template.md` (摘要模板 — cumcm 5段 / mcm 1-page+Letter / diangong 4段)
-  - `winning_patterns.md` (写作 anchor)
-  - `phrase_bank.md` (写作 anchor)
-  - `anti_patterns.md§A_I` (写作时回避)
-  - `empirical.json` (硬阈值锚定 — cumcm 真数据 / mcm/diangong seed)
-- LaTeX 模板: `<skill>/templates/latex/<competition>/`
+- `paper_skeleton.md`
+- `abstract_template.md`
+- `winning_patterns.md`
+- `phrase_bank.md`
+- `empirical.json`
 
-## 产出
+For MCM and Diangong, `empirical.json` explicitly records `n=0` and provides no numeric distribution. For CUMCM, 91 source documents were collected but only 59 text-extractable documents entered the aggregate statistics; the values are observational baselines, not award thresholds.
 
-- `paper.tex` (或 markdown 中间产物 + 转 tex)
-- `figures/` 全部图 (统一配色)
-- `tables/` 全部表 (LaTeX booktabs)
-- 最终 PDF (xelatex 编译)
+## 3. Write into a stable workspace contract
 
----
+Create these files under `<cwd>/paper_workspace/`:
 
-## 写作顺序 (反直觉但有效)
+| File | Content |
+|---|---|
+| `01_abstract.md` | Abstract or Summary Sheet, written last |
+| `02_problem_restate.md` | Problem context and restatement |
+| `03_analysis.md` | Decomposition and technical route |
+| `04_assumptions.md` | Supported assumptions |
+| `05_notation.md` | Unique symbols and units |
+| `06_models.md` | Models, algorithms, results, and interpretation |
+| `07_sensitivity.md` | Robustness and failure regions |
+| `08_evaluation.md` | Strengths, limitations, and transfer conditions |
+| `09_references.md` | Verified references, including AI tools when required |
+| `10_appendix.md` | Essential code and supporting-material manifest |
+| `11_ai_use_report.md` | MCM only: Report on Use of AI after the main solution |
 
-**摘要最后写。**
+`01_abstract.md` contains abstract/summary content without a top-level heading because the template supplies its wrapper. Files `02`–`10` each own one clear top-level Markdown heading; the MCM/Diangong templates intentionally do not print duplicate body headings. `11_ai_use_report.md` also omits its top-level heading because the MCM template supplies it.
 
-```
-1. 写正文 §1 问题重述         (30 min)
-2. 写正文 §2 问题分析         (1h)
-3. 写正文 §3 模型假设         (30 min, 复用 stage 4)
-4. 写正文 §4 符号说明         (15 min, 复用 stage 4)
-5. 写正文 §5.1 Q1 模型与求解 (2-3h, 用 stage 5 产出)
-6. 写正文 §5.2 Q2            (2-3h)
-7. 写正文 §5.3 Q3            (2-3h)
-8. 写正文 §6 灵敏度          (1h, 复用 stage 6)
-9. 写正文 §7 评价与推广       (1h, 复用 stage 7)
-10. 写正文 §8 参考文献        (30 min, 整理)
-11. 写附录 (代码 + 数据表)    (30 min)
-12. ⭐ 最后写摘要             (45 min)
-13. ⭐ 整篇 L1 自评 + 修订    (1-2h)
-```
+Write the body first, then references and appendices, and write the abstract/summary last. Every number in the abstract must point to a result already present in the body.
 
-理由: 摘要是浓缩,只有正文写完才能精确浓缩。先写摘要会导致后续被自己摘要"绑架"。
+## 4. Keep one evidence chain
 
----
+For every subproblem, preserve this chain:
 
-## 各节写作详细 prompt
+`question → assumptions → formulation → solver → result → validation → interpretation`
 
-### §1 问题重述 (1-2 页, 30 min)
+Before moving on, verify:
 
-**关键**: 不要原文照抄, 要用自己语言提炼。
+- symbols match Stage 4;
+- chosen models match Stage 3;
+- reported values match stored results rather than regenerated prose;
+- figures have readable labels, units, captions, and source paths;
+- claims and citations are verifiable;
+- limitations name a concrete failure mode and mitigation.
 
-模板:
-```
-1. 问题背景
+## 5. Apply the competition branch
 
-随着 <领域>的不断发展, <问题>已成为亟需解决的关键问题。
-本题以 <具体场景>为背景, ...
+| Competition | Current repository baseline | Renderer |
+|---|---|---|
+| CUMCM | 2026 electronic paper: first page abstract, no commitment/numbering page, no TOC or identity; main text ≤30 pages; paper and support archive each ≤20 MB; AI disclosure and `AI工具使用详情.pdf` when AI is used | `xelatex` |
+| MCM/ICM | COMAP 2027: complete main solution ≤25 pages including summary, TOC, references, appendices and code; English, ≥12pt; `Report on Use of AI` follows outside the 25-page solution | `pdflatex` |
+| Diangong | Current official baseline: cover on page 1; title, abstract and keywords on page 2 with numbering starting at 1; body starts on page 3 with no TOC and is limited to 25 pages; appendices follow; A4 with 2.5 cm margins and Chinese body text in 小四; support ZIP/RAR ≤20 MB | `xelatex` |
 
-2. 问题描述
+Problem-specific deliverables such as letters or memos also count toward the applicable page limit unless the current official problem states otherwise.
 
-题目给出了 <数据资源>, 要求解决以下三个子问题:
+## 6. Maintain the AI-use ledger
 
-问题一: <自己语言重述, 不直接抄题>
-问题二: ...
-问题三: ...
-```
+Because this skill itself uses an AI agent, keep `decision_log.compliance.ai_usage` current. For each material use, record:
 
-字数: 600-1200 字。
-**禁止**: 大段抄题。**禁止**: 仅用 1 句话重述 (信息密度太低)。
+- tool, provider, and model/version;
+- use date, stage, and purpose;
+- key prompt and key response, or paths to those records;
+- what was adopted;
+- human changes and verification performed.
 
-### §2 问题分析 (2-3 页, 1h)
+Use `<skill>/scripts/render_ai_usage.py` in Stage 9 to generate the contest-specific disclosure artifact. Never place API keys, tokens, private data, or credentials in the ledger.
 
-每子问题一段:
-```
-2.1 问题一分析
+## 7. Render without detached sections
 
-本质上, 问题一是一个 <类型>问题。需要在 <约束>下, 寻找 <决策变量>使 
-<目标函数>取得最优。
+From the user project root, call the installed script explicitly:
 
-由于 <难点>, 直接求解较为困难。本文采用 <策略>: ...
-图 1 给出了问题一的求解流程。
-
-[流程图占位]
-
-(衔接到 §5.1)
+```bash
+python <skill>/scripts/render_paper.py \
+  --competition <competition> \
+  --workspace paper_workspace/ \
+  --output-dir paper_output/
 ```
 
-**关键加分**: 流程图 (mermaid 转 PNG / TikZ)。
+The renderer assembles CUMCM directly and automatically wires MCM/Diangong section files into `main.tex`. A generated PDF with missing section inputs is a failure even if LaTeX exits successfully.
 
-### §3 模型假设 (0.5-1 页, 30 min)
+## 8. Score using the active overlay
 
-直接复用 `decision_log.stages.4.assumptions`:
+Use the five Stage 8 dimensions from `competitions/<competition>/rubric_overlay.json` when that competition overrides the baseline. Do not reuse CUMCM's five-part abstract dimensions for MCM or Diangong.
 
-```
-3. 模型假设
+## Exit conditions
 
-为简化模型并保证可解性, 本文做出如下假设:
+- all required sections and problem-specific deliverables exist;
+- the paper agrees with the Stage 0–7 decision log;
+- the current official rules were rechecked and recorded;
+- AI uses and citations are logged;
+- the active competition's renderer includes every section;
+- L1 passes and the final L2 consistency check has no unresolved high-severity conflict.
 
-(1) **短期内市场需求服从泊松分布。**
-    依据: 文献 [3] 表明零售业短期需求服从泊松; 附件 1 数据 χ² 检验 p=0.34 不拒绝。
-
-(2) ...
-
-(3) ...
-```
-
-3-7 条, 每条带支撑 (winning_patterns §6)。
-
-### §4 符号说明 (0.5-1 页, 15 min)
-
-LaTeX 表格 (booktabs):
-
-```latex
-\begin{table}[h]
-\centering
-\caption{符号说明}
-\begin{tabular}{cccl}
-\toprule
-符号 & 含义 & 单位 & 类型 \\
-\midrule
-$x_i$ & 第 $i$ 个产品产量 & 件 & 决策变量 \\
-$p_i$ & 第 $i$ 个产品单价 & 元/件 & 参数 (附件 1) \\
-$d_i$ & 第 $i$ 个产品需求 & 件 & 随机变量 \\
-\bottomrule
-\end{tabular}
-\end{table}
-```
-
-≥10 行, 全单位 (anti_pattern B5)。
-
-### §5 模型建立与求解 (12-16 页, 6-9h, 主体)
-
-每子问题 4-6 页, 结构严格:
-
-```
-5.1 问题一: <模型族变体名>
-
-5.1.1 模型建立
-
-本节针对问题一建立 <动态权重 AHP-熵权混合评价> 模型 (winning_patterns §4 命名变体).
-
-设 <决策变量, 引用 §4>。
-目标函数: ...
-$$\max f(x) = \sum_i (p_i - c_i) x_i \quad \text{(5.1)}$$
-
-约束条件:
-$$\text{(C1)} \quad \sum_i c_i x_i \leq B \quad \text{(5.2)}$$
-$$\text{(C2)} \quad x_i \in \{0, 1, ..., 50\} \quad \text{(5.3)}$$
-
-5.1.2 求解算法
-
-针对 (5.1)-(5.3), 我们采用 Lagrangian 松弛, 具体步骤如下:
-**Step 1**: ...
-**Step 2**: ...
-
-算法流程见图 2。
-
-[流程图]
-
-5.1.3 求解结果与分析
-
-通过 Python 调用 cvxpy + GUROBI 求解, 经 4.2 秒收敛, 得到最优解 x* = (12, 0, 25, ...), 
-最优利润 87234 元 (相比贪心基线 +12.3%)。
-
-[图 3: x* 分布柱状图]
-[图 4: 与基线对比]
-
-求解结果显示, ... <stage 5 物理意义讨论, 复用>。
-```
-
-**强制 checklist** (winning_patterns §3, §4, §5, §8):
-- [ ] 模型有命名变体
-- [ ] 公式编号 ≥5 个 (整个 §5.1)
-- [ ] 流程图 + 结果图 + 灵敏度图 ≥3 张
-- [ ] 数据表 ≥1
-- [ ] 物理意义段 ≥1
-- [ ] (Q3) 显式引用 Q1/Q2 结果
-
-### §6 灵敏度分析 (2-3 页, 1h)
-
-直接复用 `decision_log.stages.6`:
-
-```
-6. 灵敏度分析与稳健性检验
-
-6.1 分析方法
-
-为评估模型对参数变化的敏感程度, 本文采用拉丁超立方抽样 (LHS) 
-对 ($p, c, B$) 进行联合扰动, 在 ±5%, ±10%, ±20% 三档下各抽样 200 个点。
-
-6.2 分析结果
-
-[表 N: 稳健区间]
-[图 N: pairs plot]
-[图 N: tornado]
-
-6.3 失稳预警
-
-实验进一步发现, 当预算 $B$ 减少 30% 以上时, 最优解切换为 ... 
-(从 stage 6 直接复用)
-```
-
-### §7 模型评价与推广 (1-2 页, 1h)
-
-直接复用 `decision_log.stages.7`:
-
-```
-7. 模型评价与推广
-
-7.1 模型优点
-(1) **<优点 1>**: <证据>。
-(2) ...
-(3) ...
-
-7.2 模型缺点
-
-(1) **<缺点 1>**: 当前 <现象>。若改用 <替代方法>, 在 <指标> 上可提升 X%, 
-    但需 <代价>。
-(2) ...
-(3) ...
-
-7.3 模型改进方向
-(1) **<改进 1>**: ...
-
-7.4 模型推广
-
-本模型可推广至 **<场景 1>**, 适配方式: ...
-也可推广至 **<场景 2>**, 适配方式: ...
-```
-
-### §8 参考文献 (0.5-1 页, 30 min)
-
-**国赛要求 ≥10 条**, 用 GB/T 7714 格式:
-
-```
-[1] 张三, 李四. 基于 ... 的 ... 研究 [J]. 系统工程学报, 2023, 38(4): 567-580.
-[2] Smith J, Doe A. A novel approach to ... [J]. Operations Research, 2024, 72(3): 1234-1250.
-[3] ...
-```
-
-类型混合: ≥4 中文期刊, ≥3 英文期刊, ≥1 教材或工具书。
-
-### 附录 A: 程序代码 (30 min)
-
-每段代码 (anti_pattern D1):
-- 中文注释
-- 首行 "对应 §X.Y.Z"
-- 删除 print 调试残留
-
-```python
-# Q1 求解 - 对应论文 §5.1.2
-# Lagrangian 松弛混合整数线性规划
-import numpy as np
-import cvxpy as cp
-
-# 加载数据
-...
-```
-
-### ⭐ 摘要 (45 min, 最后写)
-
-调用 `templates/abstract_template.md`:
-
-```
-本文针对 <核心任务>, 综合考虑 <因素 1, 2, 3>, 建立了 <核心模型族>模型, 
-通过 <求解方法> 求解, 得到 <总体定量结果>。
-
-针对问题一, ... 得到 <定量结果 1>。
-针对问题二, ... 得到 <定量结果 2>。
-针对问题三, ... 得到 <定量结果 3>。
-
-对模型进行了多变量联合灵敏度分析, 在参数 ±10% 扰动内, 输出指标偏差小于 X%, 
-验证了模型的稳健性。
-
-本文创新点在于: 
-① <创新点 1>; 
-② <创新点 2>; 
-③ <创新点 3>。
-
-所建模型可推广至 <场景 1> 和 <场景 2>。
-
-**关键词**: <核心问题>, <核心方法>, <辅助方法>, <分析手段>, <应用领域>
-```
-
-**严格自检**:
-- 字数 600-900 (anti_pattern A5)
-- ≥3 个定量结果 (anti_pattern A1)
-- 5 段顺序正确 (anti_pattern A2)
-- 与正文一致 (anti_pattern A3)
-- 关键词 4-6 个高质量 (anti_pattern A4)
-
----
-
-## L1 Rubric
-
-| 维度 | 满分行为 |
-|------|---------|
-| 1. 摘要 5 段式 | 完整 5 段, 600-900 字, 定量 ≥3 |
-| 2. 章节完整性 | 8 章 + 附录全到位 |
-| 3. 公式 / 图表 / 引用 | 编号规范, 引用 ≥10 |
-| 4. 语言质量 | 摘要 5 段全部命中 phrase_bank §12 anchor + 危险句式零命中 |
-| 5. 视觉一致性 | 字号/配色/字体全文统一 |
-
-## 常见坑
-
-- A1-A5 摘要类全部 → 摘要最后写 + 自检 5 项
-- D1 代码无注释 → 中文注释 (附录)
-- I1-I5 写作呈现 → cumcmthesis 模板自动统一格式
-
-## 退出条件
-
-1. 8 章 + 附录全部完成
-2. 总页数 22-25
-3. 公式编号 60-100
-4. 图表 18-25
-5. 引用 ≥10 条 GB/T 7714
-6. xelatex 编译无错
-7. L1 全维 ≥7
-8. **L2 跨阶段回检**: 论文内容与 decision_log 0-7 一致, 无新增内容偏离
-
-→ 跳转 `stage_09_review.md`
+Then enter `stage_09_review.md`.

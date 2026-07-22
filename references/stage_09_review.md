@@ -2,248 +2,140 @@
 stage: 9
 name: review
 duration_h: 2-6
-inputs: [paper.tex, decision_log_full, decision_log.competition]
-outputs: [stage.9.{anti_patterns_check, panel_scores, weakest_section, redo_log, red_team_record, final_pdf_path, submission_ready}]
-loads_reference: [competitions/<competition>/anti_patterns.md, competitions/<competition>/rubric_overlay.json, feedback_layer3_panel.md]
-loads_template: [templates/latex/<competition>/]
-feedback: [L1, L3_5_panel, red_team_in_championship]
+inputs: ["paper.tex", "paper.pdf", "decision_log_full", "decision_log.competition"]
+outputs:
+  - "stage.9.{anti_patterns_check, compliance_checks, panel_scores, weakest_section, redo_log, red_team_record, final_pdf_path, submission_ready}"
+loads_reference:
+  - "competitions/<comp>/current_rules.md"
+  - "competitions/<comp>/anti_patterns.md"
+  - "competitions/<comp>/rubric_overlay.json"
+  - "references/feedback_layer3_panel.md"
+loads_template: ["templates/latex/<comp>/"]
+feedback: ["L1", "L3_panel", "red_team_in_championship"]
 next: SUBMIT
 ---
 
-# Stage 9 — 终稿审核 + 视觉化润色 + Panel 多视角评审
+# Stage 9 — Submission review
 
-**时长**: 2-6h (cumcm 2-4 / mcm 4-6 / diangong 2-4) | **反馈层**: L1 + L3 panel | **冲刺最后一步**
+The final gate is compliance first, content consistency second, presentation third. A polished paper that violates the current rules is not submission-ready.
 
----
+## 1. Re-open the official rules
 
-## 目标
+Read `competitions/<comp>/current_rules.md`, open its official links, and compare the final artifacts against the current contest year. Record the check in `decision_log.stages.9.compliance_checks`.
 
-把 stage 8 的论文从 "完整可读" 推到 "评委想给最高奖"。核心是**多视角对抗审查 + 反模式逐条对照** (按 competition 切换 anti_patterns 与 panel personas)。
+Minimum branches:
 
----
+### CUMCM
 
-## 输入
+- electronic paper starts with the abstract page;
+- no commitment form, numbering page, table of contents, or identity information;
+- main text and file size meet the current limits;
+- appendix lists the supporting-material files;
+- support ZIP/RAR contains runnable code and required evidence, is within the size limit, and excludes secrets;
+- AI-assisted content is marked and cited;
+- if AI was used, support materials contain `AI工具使用详情.pdf`; otherwise the required no-AI declaration is present.
 
-- `paper.tex` (stage 8 产出)
-- 全部 figures/ tables/
-- decision_log 全部
-- **按 competition 加载** (路径: `<skill>/competitions/<decision_log.competition>/`):
-  - `anti_patterns.md` (逐条对照 — cumcm 32 条 / mcm seed 15 条 / diangong seed 10 条)
-  - `rubric_overlay.json` 的 `panel_personas` (panel 5 视角 — 三竞赛各异)
+### MCM/ICM
 
-## 产出
+- Summary Sheet is page 1;
+- main solution, including references, appendices, code, TOC, and required letter/memo, is at most 25 pages;
+- readable font is at least 12pt;
+- each solution page has the control number and page number, with no personal or institutional identity;
+- AI tools are cited in the main solution;
+- `Report on Use of AI` follows the main solution and is not counted inside the 25-page solution.
 
-- 最终 `paper.pdf` (xelatex 编译完成)
-- L3 panel 5 视角评分 + 瓶颈段一次重做
-- (championship) red-team 攻击与回应记录
+### Diangong
 
----
+- page 1 is the anonymous cover with registration number and the official problem title; page 2 contains title, abstract and keywords and begins Arabic page numbering at 1;
+- the body begins on page 3, contains no table of contents and stays within the current 25-page body limit; appendices follow the body;
+- A4 margins are 2.5 cm and Chinese body text uses 小四; no team-member or school identity appears anywhere;
+- the paper is a single uncompressed PDF or Word file, while support materials are ZIP/RAR no larger than 20 MB and contain the runnable code and necessary evidence;
+- citations appear in the text and references follow citation order;
+- the currently checked official pages do not define a dedicated AI-disclosure format, so recheck the annual notice and preserve the ledger rather than inventing one.
 
-## 操作流程
+Any unresolved rule violation sets `submission_ready=false` and yields `block`.
 
-### Step 1: 反模式逐条对照 (45 min) ⭐
+## 2. Run the active anti-pattern checklist
 
-**强制读** `references/anti_patterns.md`, 32 条逐项打勾:
+Read `competitions/<comp>/anti_patterns.md` and derive the count from the active file rather than copying a remembered or example count.
 
-```
-A. 摘要类 (5 条)
-[ ] A1. 摘要无定量结果? → 数 ≥3 个
-[ ] A2. 摘要不分段? → 5 段
-[ ] A3. 摘要与论文不符? → 交叉对照
-[ ] A4. 关键词低质量? → 检查
-[ ] A5. 摘要过短/长? → 600-900
+These are maintainer heuristics, not official scoring weights. Fix high-severity hits; record accepted medium-risk items with an explicit rationale.
 
-B. 假设与符号 (6 条)
-[ ] B1. 假设无支撑? → 全有
-[ ] B2. 假设过多? → ≤7
-[ ] ...
+## 3. Verify the evidence chain
 
-C. 模型选型 (5 条)
-[ ] ...
+Cross-check the final paper against `decision_log.json` and the saved artifacts:
 
-D. 求解 (5 条)
-[ ] D1. 代码无注释? → 中文注释
-[ ] ...
+- no abandoned model remains in the abstract or conclusion;
+- no symbol changes meaning between sections;
+- all headline values reproduce from stored results;
+- every figure/table path resolves and its caption matches the content;
+- every external claim has a verified source;
+- AI-generated citations have been opened and checked manually.
 
-(E-J 共 16 条同样)
+## 4. Review presentation
 
-E. 结果分析 (4 条)
-F. 灵敏度 (4 条)
-G. 子问题协调 (2 条)
-H. 评价 (3 条)
-I. 写作呈现 (5 条)
-J. 流程协作 (3 条)
-```
+- labels, units, legends, equations, and captions remain readable at final PDF size;
+- fonts and colors are consistent and accessible;
+- tables use consistent units and precision;
+- there are no unresolved `??` references, missing glyphs, clipped figures, or large overfull boxes;
+- all required sections are present in the compiled PDF, not merely on disk as detached `.tex` files.
 
-每条:
-- 命中 high-severity → 立即修
-- 命中 medium → 标记, panel 后再决定是否修
-- 通过 → ✅
+## 5. Run the five-view panel
 
-### Step 2: 视觉化润色 (45 min)
+Use `references/feedback_layer3_panel.md` as the single source for panel roles and aggregation. Prefer independent parallel views when the harness supports them; otherwise run the views separately to reduce cross-contamination.
 
-**图**:
-- 字号 ≥9pt? (anti_pattern E3)
-- 配色统一 (matplotlib + seaborn-deep, 不要默认 tableau)
-- 标题简短信息密度高 (e.g., "图 5: 多变量 LHS 灵敏度散点矩阵")
-- 横纵轴标签 + 单位
-- legend 位置不遮挡
+Map every high-severity concern back to one source section and apply a targeted patch. Re-run only the affected checks and panel views. Do not ask the panel to predict an award; use `ready`, `refine`, or `block` against the repository rubric.
 
-**表**:
-- LaTeX booktabs (`\toprule \midrule \bottomrule`)
-- 数值对齐 (千分位、小数位统一)
-- 单位放在表头或单独列
+## 6. Generate AI disclosure artifacts
 
-**公式**:
-- 编号格式统一 ((5.1) 还是 (5.1.1)?)
-- 长公式分行, 用 `align`
-- 关键公式给文字解释
-
-**全文一致性**:
-- 字体: 西文 Times / 中文宋体 / 标题黑体 (cumcmthesis 默认)
-- 段间距: 1.0 倍
-- 双倍行距 / 1.5 倍 (按官方要求)
-
-### Step 3: L3 5 视角 Panel (1h) ⭐ 核心
-
-完整 5 视角定义、JSON schema、聚合器、定向重跑逻辑见 **`references/feedback_layer3_panel.md`** (单一权威源, 不在此重复)。
-
-**调用范式** (Claude 在此 stage 实际操作):
-
-```
-单条消息内并发 5 个 Agent 子代理 (subagent_type=general-purpose):
-
-Agent 1 → prompt: "<feedback_layer3_panel.md §Panelist 1 数学严谨视角的 prompt + paper.tex 内容>"
-Agent 2 → prompt: "<§Panelist 2 模型创新视角>"
-Agent 3 → prompt: "<§Panelist 3 代码正确视角>"
-Agent 4 → prompt: "<§Panelist 4 写作呈现视角>"
-Agent 5 → prompt: "<§Panelist 5 评委视角 — 最关键>"
-
-每个 Agent 独立返回一份 JSON (按 layer3 schema), 主流程聚合。
-```
-
-**降级方案**: 若环境不允许并发子代理, 改为串行但**每个 panelist 单独 conversation**:
-- 每个 panelist 起新 conversation, 加载自己的 prompt + paper, 输出 JSON 文件
-- 不同 panelist 之间不共享 context (避免互相污染)
-- 主进程读 5 个 JSON 文件做聚合
-
-不论并发还是串行, **聚合逻辑** 见 `feedback_layer3_panel.md` "聚合器" 节。
-
-#### 聚合: 找瓶颈段
-
-```python
-panelist_scores = [...]  # 5 份
-overall_min = min(panelist_scores, key=lambda p: p["mean_score"])
-weakest_panelist = overall_min["panelist"]
-weakest_concerns = overall_min["must_fix"]
-
-# 把 must_fix 映射回阶段
-mapped_stages = map_concerns_to_stages(weakest_concerns)
-# e.g., "代码注释" → stage 8 §附录
-# e.g., "灵敏度仅 2 参数" → stage 6
-```
-
-### Step 4: 定向重跑瓶颈段 (45 min)
-
-只针对 panel 找出的 must_fix 修, 不重做整个阶段:
-
-```
-def targeted_redo(weakest_concerns, paper_tex):
-    for concern in weakest_concerns:
-        if concern.severity == "high":
-            # diff-only 修订
-            patch = generate_patch(concern, paper_tex)
-            paper_tex = apply_patch(paper_tex, patch)
-        elif concern.severity == "medium":
-            log(concern)  # 记录但暂不修, 时间紧时跳过
-    return paper_tex
-```
-
-### Step 5: 二次 Panel (15 min)
-
-重做后再跑一次 panel (只对修订段落):
-- 若 panelist 5 (评委视角) 评分上升 → 收工
-- 若仍未达标且时间预算用尽 → 提交当前版本
-
-### Step 6: (championship) Red-team 终极攻击 (30 min)
-
-```
-你是国赛历史上最严苛的评委, 你的任务是给这篇论文找出 ≥3 个 reject 理由,
-并模拟你会写在评分表上的批注。然后, 论文作者(你扮演)给出 100 字以内的反驳。
-```
-
-输出:
-```json
-{
-  "attacks": [
-    {"point": "...", "reviewer_note": "...", "rebuttal": "..."},
-    ...
-  ]
-}
-```
-
-如反驳力弱 → 修, 如反驳有力 → 在 §7 评价节加一条"潜在质疑回应"。
-
-### Step 7: xelatex 编译 + PDF 输出 (15 min)
+For CUMCM or MCM, run from the user project root:
 
 ```bash
-cd D:\desktop\paper-workspace\
-xelatex paper.tex
-xelatex paper.tex   # 二编以解决目录与交叉引用
-xelatex paper.tex   # 三编 (保险)
+python <skill>/scripts/render_ai_usage.py \
+  --competition <competition> \
+  --decision-log state/decision_log.json \
+  --paper-workspace paper_workspace/ \
+  --support-dir support_materials/
 ```
 
-检查:
-- [ ] PDF 总页数 22-25 (排除附录)
-- [ ] 无未解决的 `??` 交叉引用
-- [ ] 无 underfull/overfull 大量警告
-- [ ] PDF 可正常打开
+For CUMCM with AI use, verify `support_materials/AI工具使用详情.pdf` is in the supporting archive and that inline marks and AI-tool references are present. For an explicit empty CUMCM ledger, the helper instead creates `paper_workspace/AI工具未使用声明.md`; rerender and verify that the declaration appears immediately after the references, with no details PDF. For MCM, verify `paper_workspace/11_ai_use_report.md` is rendered once, after the 25-page main solution. The helper intentionally does not invent a Diangong disclosure format; for Diangong, compare the ledger with the current official notice and record that manual check.
 
-### Step 8: 最终输出 (5 min)
+## 7. Compile and inspect the final PDF
 
-写入 `decision_log.stages.9`:
+Use `<skill>/scripts/render_paper.py` or the selected LaTeX engine. Compilation succeeds only when the PDF exists, includes all intended sections, and has no unresolved high-severity warnings. Visually inspect the first page, dense equations, wide tables, figure-heavy pages, references, appendices, and the AI report.
+
+## 8. Persist the final gate
+
+Write actual runtime-derived counts and paths. The schema is:
+
 ```json
 {
-  "anti_patterns_check": {"total": 32, "passed": 30, "fixed": 2, "deferred": 0},
-  "panel_scores": {
-    "panelist_1_math": {...},
-    "panelist_2_innovation": {...},
-    "panelist_3_code": {...},
-    "panelist_4_writing": {...},
-    "panelist_5_judge": {...}
+  "anti_patterns_check": {
+    "total": null,
+    "passed": null,
+    "fixed": null,
+    "deferred": null
   },
-  "weakest_section": "...",
-  "redo_log": [...],
-  "red_team_record": [...],
-  "final_pdf_path": "paper.pdf",
-  "submission_ready": true
+  "compliance_checks": {
+    "rules_verified": null,
+    "anonymity_passed": null,
+    "page_limit_passed": null,
+    "ai_disclosure_passed": null
+  },
+  "final_pdf_path": "paper_output/paper.pdf",
+  "submission_ready": null
 }
 ```
 
----
+The `null` values above are schema placeholders only. Replace every one with an observed count or verified boolean before persisting Stage 9; never copy a sample result into the final gate.
 
-## L3 Panel 退出条件
+## Exit conditions
 
-- panelist 5 (评委视角) verdict ∈ {"first", "second"} → 提交
-- 若 "third" 但时间预算耗尽 → 提交 + 标记 (没办法)
-- 若 "first" 且 mean ≥ 9.0 → 庆祝 🎉
+- current official rules verified with no unresolved violation;
+- anti-pattern and consistency checks completed;
+- all high-severity panel findings resolved;
+- PDF compiled and visually inspected;
+- AI disclosure and supporting materials complete when required;
+- `decision_log.stages.9.submission_ready == true`.
 
-## L1 Stage Rubric
-
-| 维度 | 满分 |
-|------|-----|
-| 1. 反模式覆盖 | 32/32 通过或 ≥30 |
-| 2. 视觉一致性 | 字号/配色/字体全统一 |
-| 3. Panel 一致性 | 5 视角 mean ≥ 8 |
-| 4. 瓶颈处理 | weakest must_fix 已修 |
-| 5. PDF 编译 | 无错误, 22-25 页 |
-
-## 退出条件 (整个 skill 终点)
-
-1. 反模式 32 条全部通过
-2. L3 panel mean ≥ 8, panelist 5 verdict ≥ "second" (理想 "first")
-3. PDF 编译成功
-4. (championship) red-team 攻击全部有可信回应
-5. decision_log.stages.9.submission_ready == true
-
-→ **提交!**
+Only then hand the final submission package back to the team.

@@ -1,17 +1,17 @@
 """
-score_artifact.py — L1 Critic 输出后的本地处理脚本 (v3.0 三竞赛版)
+score_artifact.py — L1 Critic 输出后的本地处理脚本 (v3.1 三竞赛版)
 
 功能:
 1. 读取 critique JSON
 2. 验证 schema (5 维 + verdict + dim key 白名单, 含竞赛 overlay)
 3. 决定下一步: block / pass_early / pass / pass_with_review / refine / refine_partial / carryover
-4. 写入 cwd/state/decision_log.scores
-5. 注入实测分位 (empirical injection) 到 evidence
+4. 写入 <cwd>/state/decision_log.scores
+5. 格式化并打印 empirical 比较（不修改 critique）
 6. 题型 dim 权重 (task_type weighting)
 7. Stage 5 per-Qi 加权聚合 (compute_stage5_verdict)
 
 路径协议:
-- decision_log: 默认 cwd/state/decision_log.json, 可用 MATHMODEL_STATE_DIR (兼容老 CUMCM_STATE_DIR) 或 --decision-log 覆盖
+- decision_log: 默认 <cwd>/state/decision_log.json, 可用 MATHMODEL_STATE_DIR (兼容老 CUMCM_STATE_DIR) 或 --decision-log 覆盖
 - competition: 默认从 decision_log.competition 读, 缺失则 cumcm; 可用 --competition 或 MATHMODEL_COMPETITION env 覆盖
 - task_type: 默认从 decision_log.task_type 读, null 则 default 全 1.0; 可用 --task-type 覆盖
 
@@ -27,6 +27,9 @@ score_artifact.py — L1 Critic 输出后的本地处理脚本 (v3.0 三竞赛�
 import json
 import os
 import argparse
+import math
+import re
+import tempfile
 from pathlib import Path
 from datetime import datetime
 
@@ -37,6 +40,7 @@ VALID_VERDICTS = {
 }
 
 VALID_VARIANTS = {"stage_level", "per_qi"}
+COMPETITIONS = {"cumcm", "mcm", "diangong"}
 
 # Baseline DIM_WHITELIST (cumcm-flavored; 其他竞赛通过 rubric_overlay.json dim_whitelist 覆盖)
 DIM_WHITELIST = {
@@ -75,7 +79,7 @@ _SKILL_ROOT = Path(__file__).resolve().parent.parent
 # ============================================================================
 
 def resolve_decision_log_path(cli_arg: str = None) -> Path:
-    """路径解析协议: CLI > MATHMODEL_STATE_DIR > CUMCM_STATE_DIR (兼容) > cwd/state/decision_log.json"""
+    """路径解析协议: CLI > MATHMODEL_STATE_DIR > CUMCM_STATE_DIR (兼容) > <cwd>/state/decision_log.json"""
     if cli_arg:
         return Path(cli_arg)
     env_dir = os.environ.get("MATHMODEL_STATE_DIR") or os.environ.get("CUMCM_STATE_DIR")
@@ -137,12 +141,25 @@ def load_dim_weights_table(competition: str, task_type: str) -> dict:
     comp_table = table.get(competition, {})
     if not comp_table:
         return {}
-    # 优先 task_type, 缺失则 default
-    weights = comp_table.get(task_type)
-    if weights is None or weights == {} or list(weights.keys()) == ["_note"]:
-        weights = comp_table.get("default", {})
-    # 过滤掉以 _ 开头的元字段
-    return {k: v for k, v in weights.items() if not k.startswith("_")}
+    # default 是竞赛级基线; 题型配置按 stage / dim 深合并后覆盖。
+    # 旧实现整块替换 default, 会让 A/B/... 题型静默丢失竞赛通用权重。
+    default_weights = {
+        stage: dims for stage, dims in comp_table.get("default", {}).items()
+        if not stage.startswith("_")
+    }
+    specific_weights = {
+        stage: dims for stage, dims in comp_table.get(task_type, {}).items()
+        if not stage.startswith("_")
+    }
+    merged = {
+        stage: dict(dims) for stage, dims in default_weights.items()
+        if isinstance(dims, dict)
+    }
+    for stage, dims in specific_weights.items():
+        if not isinstance(dims, dict):
+            continue
+        merged.setdefault(stage, {}).update(dims)
+    return merged
 
 
 def load_dim_whitelist(competition: str, stage_id, variant: str = "stage_level") -> set:
@@ -177,13 +194,13 @@ def load_competition_config(competition: str, task_type: str = "default") -> dic
 
 def inject_evidence(dim_key: str, value: float, empirical: dict, by_topic: str = None) -> str:
     """
-    把 empirical p25/p50/p75 注入 evidence 字符串.
+    格式化 empirical p25/p50/p75 比较文本，仅供 CLI 打印，不修改 critique.
     dim_key: empirical.json dims 字段的 key (如 abstract_chars / formula_count)
     value: 当前实测值
     by_topic: 若提供 (e.g. "A"), 优先用 empirical.by_topic[A][dim_key]
 
     Returns:
-        "value=720, p50=992, IQR=[748, 1146], status=低于 p25 [seed: ...]" 形式
+        "value=720, p50=992, IQR=[748, 1146], status=低于 p25" 形式
     """
     if not empirical:
         return f"value={value} [empirical 数据缺失]"
@@ -209,12 +226,8 @@ def inject_evidence(dim_key: str, value: float, empirical: dict, by_topic: str =
     else:
         status = "IQR 内"
 
-    seed_tag = ""
-    if empirical.get("source", {}).get("status", "").startswith("seed"):
-        seed_tag = " [seed: 阈值未实测分位]"
-
     return (f"value={value}, p50={p50}, IQR=[{p25}, {p75}]"
-            f"{' (by topic ' + by_topic + ')' if by_topic else ''}, status={status}{seed_tag}")
+            f"{' (by topic ' + by_topic + ')' if by_topic else ''}, status={status}")
 
 
 def apply_dim_weights(scores: dict, weights_for_stage: dict) -> dict:
@@ -234,6 +247,26 @@ def apply_dim_weights(scores: dict, weights_for_stage: dict) -> dict:
     return out
 
 
+def summarize_scores(scores: dict, weights_for_stage: dict = None) -> dict:
+    """Return one canonical score summary used by validation, verdicts, and logs."""
+    score_values = {k: d["score"] for k, d in scores.items()}
+    raw_min = min(score_values.values())
+    raw_mean = sum(score_values.values()) / len(score_values)
+
+    w_table = apply_dim_weights(score_values, weights_for_stage or {})
+    weight_total = sum(w_table.values())
+    weighted_mean = (
+        sum(score_values[d] * w_table[d] for d in score_values) / weight_total
+        if weight_total else raw_mean
+    )
+    return {
+        "raw_min": raw_min,
+        "raw_mean": raw_mean,
+        "weighted_mean": weighted_mean,
+        "weights": w_table,
+    }
+
+
 def compute_verdict(critique: dict, weights_for_stage: dict = None) -> str:
     """
     根据分数与 issues 重算 verdict (覆盖 critic 的 verdict 字段, 防 gaming).
@@ -242,17 +275,9 @@ def compute_verdict(critique: dict, weights_for_stage: dict = None) -> str:
 
     与 SKILL.md / feedback_layer1_critic.md 三处一致.
     """
-    score_values = {k: d["score"] for k, d in critique["scores"].items()}
-    raw_min = min(score_values.values())
-    raw_mean = sum(score_values.values()) / len(score_values)
-
-    if weights_for_stage:
-        w_table = apply_dim_weights(score_values, weights_for_stage)
-        weighted_sum = sum(score_values[d] * w_table[d] for d in score_values)
-        weight_total = sum(w_table.values())
-        weighted_mean = weighted_sum / weight_total if weight_total else raw_mean
-    else:
-        weighted_mean = raw_mean
+    summary = summarize_scores(critique["scores"], weights_for_stage)
+    raw_min = summary["raw_min"]
+    weighted_mean = summary["weighted_mean"]
 
     high_issues = [i for i in critique["issues"] if i.get("severity") == "high"]
 
@@ -268,29 +293,113 @@ def compute_verdict(critique: dict, weights_for_stage: dict = None) -> str:
 def compute_stage5_verdict(qi_results: list, qi_weights: list = None) -> dict:
     """
     Stage 5 per-Qi 加权聚合.
-    qi_results: [{qi: 'Q1', min: int, mean: float, scores: {...}}]
+    qi_results: [{qi: 'Q1', min: int, mean: float, scores: {...}, issues: [...]}]
     qi_weights: [1.0, 1.0, 1.0]; None → 均匀
 
     Returns:
         {
-          "verdict": "pass" | "pass_with_review" | "refine_partial" | "refine",
+          "verdict": "block" | "pass" | "pass_with_review" | "refine_partial" | "refine",
           "weighted_min": int,  # min over Qi.min
           "weighted_mean": float,
-          "qi_status": {"Q1": "pass"|"mark_for_review"|"refine", ...},
+          "qi_status": {"Q1": "pass"|"mark_for_review"|"refine"|"block", ...},
           "review_qis": [...],  # mark_for_review 的 Qi
-          "refine_qis": [...]   # 需要重做的 Qi (min < 7 且整体不 pass)
+          "refine_qis": [...],  # 需要重做的 Qi (min < 7)
+          "block_qis": [...]    # 含 high-severity issue 的 Qi
         }
     """
-    if not qi_results:
-        return {"verdict": "refine", "qi_status": {}, "review_qis": [], "refine_qis": []}
+    if not isinstance(qi_results, list) or not qi_results:
+        raise ValueError("qi_results 必须是至少包含一个子问的数组")
 
     n = len(qi_results)
-    if qi_weights is None or len(qi_weights) != n:
+    seen_qis = set()
+    for index, qi in enumerate(qi_results):
+        if not isinstance(qi, dict):
+            raise ValueError(f"qi_results[{index}] 必须是 JSON object")
+        qi_id = qi.get("qi")
+        if not isinstance(qi_id, str) or not re.fullmatch(r"Q[1-9][0-9]*", qi_id):
+            raise ValueError(f"qi_results[{index}].qi 必须形如 Q1/Q2")
+        if qi_id in seen_qis:
+            raise ValueError(f"qi_results 出现重复子问: {qi_id}")
+        seen_qis.add(qi_id)
+        for field in ("min", "mean"):
+            value = qi.get(field)
+            if (not isinstance(value, (int, float)) or isinstance(value, bool)
+                    or not math.isfinite(value) or not (1 <= value <= 10)):
+                raise ValueError(f"qi_results[{index}].{field} 必须是 [1,10] 数值")
+        if qi["min"] > qi["mean"]:
+            raise ValueError(f"qi_results[{index}].min 不能大于 mean")
+
+        issues = qi.get("issues")
+        if not isinstance(issues, list):
+            raise ValueError(
+                f"qi_results[{index}].issues 必须是 list；聚合不能丢弃子问问题"
+            )
+        if len(issues) > 5:
+            raise ValueError(f"qi_results[{index}].issues 最多包含 5 项")
+        for issue_index, issue in enumerate(issues):
+            if not isinstance(issue, dict):
+                raise ValueError(
+                    f"qi_results[{index}].issues[{issue_index}] 必须是 object"
+                )
+            if issue.get("severity") not in {"high", "medium", "low"}:
+                raise ValueError(
+                    f"qi_results[{index}].issues[{issue_index}].severity 无效"
+                )
+            for field in ("where", "fix"):
+                if not isinstance(issue.get(field), str) or not issue[field].strip():
+                    raise ValueError(
+                        f"qi_results[{index}].issues[{issue_index}].{field} "
+                        "必须是非空字符串"
+                    )
+
+        scores = qi.get("scores")
+        if scores is not None:
+            if not isinstance(scores, dict) or len(scores) != 5:
+                raise ValueError(f"qi_results[{index}].scores 必须是 5 维 object")
+            score_values = []
+            for dim_name, dim in scores.items():
+                if not isinstance(dim, dict) or "score" not in dim:
+                    raise ValueError(
+                        f"qi_results[{index}].scores.{dim_name} 缺少 score"
+                    )
+                score = dim["score"]
+                if (not isinstance(score, (int, float)) or isinstance(score, bool)
+                        or not math.isfinite(score) or not (1 <= score <= 10)):
+                    raise ValueError(
+                        f"qi_results[{index}].scores.{dim_name}.score 必须是 [1,10] 数值"
+                    )
+                score_values.append(score)
+            computed_min = min(score_values)
+            computed_mean = sum(score_values) / len(score_values)
+            if qi["min"] != computed_min:
+                raise ValueError(
+                    f"qi_results[{index}].min 与 scores 不一致: "
+                    f"reported={qi['min']}, computed={computed_min}"
+                )
+            if abs(qi["mean"] - computed_mean) > 0.02:
+                raise ValueError(
+                    f"qi_results[{index}].mean 与 scores 不一致: "
+                    f"reported={qi['mean']}, computed={computed_mean:.2f}"
+                )
+
+    if qi_weights is None:
         qi_weights = [1.0] * n
+    elif not isinstance(qi_weights, list) or len(qi_weights) != n:
+        raise ValueError(f"qi_weights 长度必须等于 qi_results 长度 {n}")
+    elif any(
+        not isinstance(w, (int, float))
+        or isinstance(w, bool)
+        or not math.isfinite(w)
+        or w <= 0
+        for w in qi_weights
+    ):
+        raise ValueError("qi_weights 必须全部是有限正数")
 
     qi_status = {}
     for qi in qi_results:
-        if qi["min"] >= 7 and qi["mean"] >= 8:
+        if any(issue.get("severity") == "high" for issue in qi["issues"]):
+            qi_status[qi["qi"]] = "block"
+        elif qi["min"] >= 7 and qi["mean"] >= 8:
             qi_status[qi["qi"]] = "pass"
         elif qi["min"] >= 7:
             qi_status[qi["qi"]] = "mark_for_review"
@@ -303,14 +412,13 @@ def compute_stage5_verdict(qi_results: list, qi_weights: list = None) -> dict:
 
     review_qis = [q for q, s in qi_status.items() if s == "mark_for_review"]
     refine_qis = [q for q, s in qi_status.items() if s == "refine"]
+    block_qis = [q for q, s in qi_status.items() if s == "block"]
 
-    if refine_qis:
-        # 部分 Qi 需 refine; 不阻塞其他 Qi
-        if weighted_min >= 7 and weighted_mean >= 8:
-            # 不太可能但理论存在: refine Qi 拖低但加权后仍 pass → refine_partial
-            verdict = "refine_partial"
-        else:
-            verdict = "refine_partial"
+    if block_qis:
+        verdict = "block"
+    elif refine_qis:
+        # 只有部分 Qi 失败时才定向回修；全部失败说明基础或共享链路有问题。
+        verdict = "refine_partial" if len(refine_qis) < n else "refine"
     elif review_qis:
         if weighted_min >= 7 and weighted_mean >= 8:
             verdict = "pass_with_review"
@@ -332,6 +440,8 @@ def compute_stage5_verdict(qi_results: list, qi_weights: list = None) -> dict:
         "qi_status": qi_status,
         "review_qis": review_qis,
         "refine_qis": refine_qis,
+        "block_qis": block_qis,
+        "qi_weights": list(qi_weights),
     }
 
 
@@ -350,11 +460,24 @@ def validate_critique(critique: dict, stage_id: int, competition: str = "cumcm",
     """
     验证 critique JSON 是否符合 L1 schema, 含竞赛 overlay-aware 的 dim key 白名单
     """
+    if not isinstance(critique, dict):
+        return False, "critique 根节点必须是 object"
+
     required_keys = {"stage_id", "iteration", "scores", "min_score",
                      "mean_score", "issues", "verdict"}
     missing = required_keys - critique.keys()
     if missing:
         return False, f"缺少 keys: {missing}"
+
+    if (not isinstance(critique["stage_id"], int)
+            or isinstance(critique["stage_id"], bool)
+            or critique["stage_id"] != stage_id):
+        return False, f"stage_id 不一致: critique={critique['stage_id']}, CLI={stage_id}"
+
+    if (not isinstance(critique["iteration"], int)
+            or isinstance(critique["iteration"], bool)
+            or critique["iteration"] < 0):
+        return False, "iteration 必须是非负整数"
 
     if critique["verdict"] not in VALID_VERDICTS:
         return False, f"verdict 必须 ∈ {VALID_VERDICTS}, 实际: {critique['verdict']}"
@@ -385,13 +508,47 @@ def validate_critique(critique: dict, stage_id: int, competition: str = "cumcm",
     for dim_name, dim in critique["scores"].items():
         if not isinstance(dim, dict) or "score" not in dim:
             return False, f"scores.{dim_name} 缺 score 字段"
-        if not (1 <= dim["score"] <= 10):
+        if (not isinstance(dim["score"], (int, float))
+                or isinstance(dim["score"], bool)
+                or not (1 <= dim["score"] <= 10)):
             return False, f"scores.{dim_name}.score 超出 [1,10]"
+        if not isinstance(dim.get("evidence"), str) or not dim["evidence"].strip():
+            return False, f"scores.{dim_name}.evidence 必须是非空字符串"
+
+    summary = summarize_scores(critique["scores"])
+    if (not isinstance(critique["min_score"], (int, float))
+            or isinstance(critique["min_score"], bool)
+            or critique["min_score"] != summary["raw_min"]):
+        return False, (
+            f"min_score 与 scores 不一致: reported={critique['min_score']}, "
+            f"computed={summary['raw_min']}"
+        )
+    if (not isinstance(critique["mean_score"], (int, float))
+            or isinstance(critique["mean_score"], bool)
+            or not math.isfinite(critique["mean_score"])
+            or abs(critique["mean_score"] - summary["raw_mean"]) > 0.02):
+        return False, (
+            f"mean_score 与 scores 不一致: reported={critique['mean_score']}, "
+            f"computed={summary['raw_mean']:.2f}"
+        )
 
     if not isinstance(critique["issues"], list):
         return False, "issues 必须是 list"
     if len(critique["issues"]) > 5:
         return False, f"issues 长度 {len(critique['issues'])} > 5, 应回 stage 重做而非精修"
+    for index, issue in enumerate(critique["issues"]):
+        if not isinstance(issue, dict):
+            return False, f"issues[{index}] 必须是 object"
+        if issue.get("severity") not in {"high", "medium", "low"}:
+            return False, f"issues[{index}].severity 必须是 high/medium/low"
+        for field in ("where", "fix"):
+            if not isinstance(issue.get(field), str) or not issue[field].strip():
+                return False, f"issues[{index}].{field} 必须是非空字符串"
+        anti_pattern_id = issue.get("anti_pattern_id")
+        if (anti_pattern_id is not None
+                and (not isinstance(anti_pattern_id, str)
+                     or not re.fullmatch(r"[A-Z][0-9]+", anti_pattern_id))):
+            return False, f"issues[{index}].anti_pattern_id 必须形如 A1 或为 null"
 
     return True, "ok"
 
@@ -399,6 +556,33 @@ def validate_critique(critique: dict, stage_id: int, competition: str = "cumcm",
 # ============================================================================
 # decision_log 写入
 # ============================================================================
+
+def _atomic_write_json(path: Path, value: dict) -> None:
+    """Write JSON beside its destination, then atomically replace the old file."""
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            temp_path = Path(handle.name)
+            json.dump(value, handle, ensure_ascii=False, indent=2, allow_nan=False)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+
+        # NamedTemporaryFile defaults to 0600. Preserve the existing state file's
+        # permissions so an atomic update does not surprise a shared workspace.
+        os.chmod(temp_path, path.stat().st_mode)
+        os.replace(temp_path, path)
+        temp_path = None
+    finally:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
 
 def update_decision_log(stage_id: int, critique: dict, decision_log_path: Path,
                         variant: str = "stage_level", qi_id: str = None,
@@ -429,6 +613,7 @@ def update_decision_log(stage_id: int, critique: dict, decision_log_path: Path,
         "min": critique["min_score"],
         "mean": critique["mean_score"],
         "verdict": critique["verdict"],
+        "issues": critique["issues"],
         "ts": datetime.now().isoformat(),
     }
     if variant == "per_qi":
@@ -445,8 +630,7 @@ def update_decision_log(stage_id: int, critique: dict, decision_log_path: Path,
         log["iterations"] = {}
     log["iterations"][stage_key] = critique["iteration"] + 1
 
-    with open(decision_log_path, "w", encoding="utf-8") as f:
-        json.dump(log, f, ensure_ascii=False, indent=2)
+    _atomic_write_json(decision_log_path, log)
 
 
 def read_decision_log(decision_log_path: Path) -> dict:
@@ -455,6 +639,37 @@ def read_decision_log(decision_log_path: Path) -> dict:
         return {}
     with open(decision_log_path, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+def update_stage5_aggregate(result: dict, qi_results: list, qi_weights: list | None,
+                            decision_log_path: Path) -> None:
+    """Persist the canonical per-Qi aggregate into the Stage 5 state node."""
+    if not decision_log_path.exists():
+        raise FileNotFoundError(
+            f"{decision_log_path} 不存在。请先由 Stage 0 初始化 decision log。"
+        )
+    log = read_decision_log(decision_log_path)
+    stage5 = log.setdefault("stages", {}).setdefault("5", {})
+    stage5["qi_status"] = result["qi_status"]
+    stage5["review_qis"] = result["review_qis"]
+    stage5["refine_qis"] = result["refine_qis"]
+    stage5["block_qis"] = result.get("block_qis", [])
+    stage5["aggregate"] = {
+        "method": "per_qi_weighted",
+        "weighted_min": result.get("weighted_min"),
+        "weighted_mean": result.get("weighted_mean"),
+        "verdict": result["verdict"],
+        "source_qis": [item["qi"] for item in qi_results],
+        "ts": datetime.now().isoformat(),
+    }
+    effective_weights = result.get("qi_weights")
+    if (not isinstance(effective_weights, list)
+            or len(effective_weights) != len(qi_results)
+            or any(not isinstance(w, (int, float)) or isinstance(w, bool)
+                   or not math.isfinite(w) or w <= 0 for w in effective_weights)):
+        raise ValueError("聚合结果缺少有效 qi_weights")
+    stage5["qi_weights"] = list(effective_weights)
+    _atomic_write_json(decision_log_path, log)
 
 
 # ============================================================================
@@ -477,6 +692,7 @@ def decide_next_action(critique: dict, max_iter: int = 3,
     if actual_verdict in ("pass", "pass_early", "pass_with_review"):
         return {"action": "next_stage", "verdict": actual_verdict}
     if iter_num >= max_iter:
+        critique["verdict"] = "carryover"
         return {"action": "carryover", "verdict": "carryover",
                 "reason": f"已迭代 {iter_num}+1 次仍未达标, 标记 carryover, L2 回检处理"}
     return {"action": "section_patch", "verdict": "refine",
@@ -495,14 +711,33 @@ def cmd_aggregate_qi(args):
         print(f"[FAIL] {qi_results_path} 不存在")
         return 1
 
-    with open(qi_results_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    try:
+        with open(qi_results_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except json.JSONDecodeError as exc:
+        print(f"[FAIL] qi-results 不是有效 JSON: {exc}")
+        return 1
+    if not isinstance(data, dict):
+        print("[FAIL] qi-results 根节点必须是 object")
+        return 1
     qi_results = data.get("qi_results", [])
     qi_weights = data.get("qi_weights")
 
-    result = compute_stage5_verdict(qi_results, qi_weights)
+    try:
+        result = compute_stage5_verdict(qi_results, qi_weights)
+    except ValueError as exc:
+        print(f"[FAIL] {exc}")
+        return 1
+
+    decision_log_path = resolve_decision_log_path(args.decision_log)
+    try:
+        update_stage5_aggregate(result, qi_results, qi_weights, decision_log_path)
+    except (FileNotFoundError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+        print(f"[FAIL] 无法写入 Stage 5 聚合状态: {exc}")
+        return 1
     print(f"Stage 5 per-Qi 聚合 (n={len(qi_results)})")
     print(json.dumps(result, ensure_ascii=False, indent=2))
+    print(f"[OK] written: {decision_log_path}")
     return 0
 
 
@@ -516,8 +751,8 @@ def main():
                         help="per_qi variant 必填, e.g. Q1/Q2")
     parser.add_argument("--max-iter", type=int, default=3)
     parser.add_argument("--decision-log", type=str, default=None,
-                        help="覆盖路径解析协议; 默认 cwd/state/decision_log.json")
-    parser.add_argument("--competition", type=str, default=None,
+                        help="覆盖路径解析协议; 默认 <cwd>/state/decision_log.json")
+    parser.add_argument("--competition", choices=sorted(COMPETITIONS), default=None,
                         help="cumcm | mcm | diangong (默认从 decision_log 读, 缺失则 cumcm)")
     parser.add_argument("--task-type", type=str, default=None,
                         help="题型 e.g. A_optimization (默认 default 全 1.0)")
@@ -537,22 +772,43 @@ def main():
     if args.stage is None or args.critique is None:
         print("[FAIL] mode=normal 需 --stage 与 --critique")
         return 1
+    if args.max_iter < 0:
+        print("[FAIL] --max-iter 必须是非负整数")
+        return 1
 
     decision_log_path = resolve_decision_log_path(args.decision_log)
-    decision_log = read_decision_log(decision_log_path)
+    try:
+        decision_log = read_decision_log(decision_log_path)
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"[FAIL] decision_log 无法读取: {exc}")
+        return 1
+    if not isinstance(decision_log, dict):
+        print("[FAIL] decision_log 根节点必须是 object")
+        return 1
 
     competition = resolve_competition(args.competition, decision_log)
     task_type = resolve_task_type(args.task_type, decision_log)
+    if competition not in COMPETITIONS:
+        print(f"[FAIL] 未知 competition: {competition!r}")
+        return 1
 
-    with open(args.critique, "r", encoding="utf-8") as f:
-        critique = json.load(f)
+    try:
+        with open(args.critique, "r", encoding="utf-8") as f:
+            critique = json.load(f)
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"[FAIL] critique 无法读取: {exc}")
+        return 1
+    if not isinstance(critique, dict):
+        print("[FAIL] critique 根节点必须是 object")
+        return 1
 
     variant = args.variant or critique.get("variant", "stage_level")
     qi_id = args.qi_id or critique.get("qi_id")
 
-    if variant == "per_qi" and not qi_id:
-        print("[FAIL] variant=per_qi 必须提供 --qi-id 或 critique.qi_id (e.g. Q1)")
-        return 1
+    if variant == "per_qi":
+        if not isinstance(qi_id, str) or not re.fullmatch(r"Q[1-9][0-9]*", qi_id):
+            print("[FAIL] variant=per_qi 必须提供形如 Q1/Q2 的 --qi-id 或 critique.qi_id")
+            return 1
 
     ok, msg = validate_critique(critique, args.stage, competition, variant)
     if not ok:
@@ -565,7 +821,7 @@ def main():
     # 过滤 _note 等元字段
     weights_for_stage = {k: v for k, v in weights_for_stage.items() if not k.startswith("_")}
 
-    # 注入实测分位 (若 critique 有 evidence_metrics 字段)
+    # 格式化并打印实测分位比较（不改写 critique）
     empirical = load_empirical(competition)
     if "evidence_metrics" in critique and empirical:
         topic = (decision_log.get("problem_meta", {}) or {}).get("letter")
@@ -579,21 +835,25 @@ def main():
           f"competition {competition}, task_type {task_type}")
     print(f"  Min score: {critique['min_score']}, Mean: {critique['mean_score']:.2f}")
     if weights_for_stage:
-        weighted_score = sum(critique["scores"][d]["score"] * weights_for_stage.get(d, 1.0)
-                             for d in critique["scores"])
-        weight_total = sum(weights_for_stage.get(d, 1.0) for d in critique["scores"])
-        weighted_mean = weighted_score / weight_total if weight_total else critique["mean_score"]
+        weighted_mean = summarize_scores(critique["scores"], weights_for_stage)["weighted_mean"]
         print(f"  Weighted mean (task_type={task_type}): {weighted_mean:.2f}")
     else:
         weighted_mean = None
     print(f"  Critic verdict: {critique['verdict']} -> Actual: {actual_verdict}")
     print(f"  decision_log: {decision_log_path}")
 
-    update_decision_log(args.stage, critique, decision_log_path,
-                        variant, qi_id, weighted_mean=weighted_mean)
+    # Decide before persisting: at the iteration cap, the canonical state is
+    # carryover rather than the intermediate score-derived refine verdict.
+    critique["verdict"] = actual_verdict
+    action = decide_next_action(critique, args.max_iter, weights_for_stage)
+    try:
+        update_decision_log(args.stage, critique, decision_log_path,
+                            variant, qi_id, weighted_mean=weighted_mean)
+    except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+        print(f"  [FAIL] 无法写入 decision_log: {exc}")
+        return 1
     print(f"  [OK] written")
 
-    action = decide_next_action(critique, args.max_iter, weights_for_stage)
     print(f"\n下一步: {action['action']}")
     print(json.dumps(action, ensure_ascii=False, indent=2))
     return 0

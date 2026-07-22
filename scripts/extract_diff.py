@@ -2,7 +2,7 @@
 extract_diff.py — Section-level patch refinement 工具
 
 功能: 把 L1 critique.issues 转换成"只修订有问题段落"的精修指令,
-      避免重新生成整个 artifact, 节省 60% token.
+      缩小修改范围并保留已通过章节；实际节省量取决于 artifact 与 patch.
 
 实现策略 (修复原 unified diff 实现的丢修订 bug):
 - 优先模式: section-level patch (按 markdown ## 章节定位 + 全段替换)
@@ -17,6 +17,9 @@ import json
 import argparse
 import re
 from pathlib import Path
+
+
+MAX_SECTION_PATCH_CHARS = 20_000
 
 
 def load_artifact(path: str) -> str:
@@ -67,33 +70,48 @@ def build_section_patch_prompt(artifact_path: str, critique: dict) -> str:
     lines = artifact.splitlines()
     issues = critique.get("issues", [])
 
-    targets = []
+    grouped_targets = {}
+    unmatched_targets = []
     for i, issue in enumerate(issues):
         where = issue.get("where", "")
         relevant = find_relevant_sections(artifact, where)
         if relevant:
             heading, start, end = relevant[0]
             section_text = "\n".join(lines[start:end + 1])
-            if len(section_text) > 1500:
-                section_text = section_text[:1500] + "\n... <truncated>"
-            targets.append({
+            if len(section_text) > MAX_SECTION_PATCH_CHARS:
+                raise ValueError(
+                    f"section {heading!r} 长度 {len(section_text)} 超过 "
+                    f"{MAX_SECTION_PATCH_CHARS} 字符；请先增加更细的 Markdown heading，"
+                    "或改用 --mode diff。为防止整节覆盖时丢失尾部内容，本工具不会截断。"
+                )
+            key = (heading, start, end)
+            target = grouped_targets.setdefault(key, {
+                "section_heading": heading,
+                "section_lines": [start + 1, end + 1],
+                "section_text": section_text,
+                "issues": [],
+            })
+            target["issues"].append({
                 "issue_id": f"issue_{i}",
                 "where": where,
                 "fix": issue.get("fix", ""),
                 "anti_pattern_id": issue.get("anti_pattern_id"),
-                "section_heading": heading,
-                "section_lines": [start, end],
-                "section_excerpt": section_text,
             })
         else:
-            targets.append({
+            unmatched_targets.append({
+                "patch_id": f"unmatched_{i}",
                 "issue_id": f"issue_{i}",
                 "where": where,
                 "fix": issue.get("fix", ""),
                 "anti_pattern_id": issue.get("anti_pattern_id"),
                 "section_heading": "<未匹配, 全文级修订>",
-                "section_excerpt": "",
+                "section_text": "",
             })
+
+    targets = []
+    for index, target in enumerate(grouped_targets.values()):
+        targets.append({"patch_id": f"section_{index}", **target})
+    targets.extend(unmatched_targets)
 
     return f"""# 精修任务 (Section-Level Patch)
 
@@ -107,56 +125,82 @@ artifact 路径: `{artifact_path}` ({len(lines)} 行).
 
 ## Output Format
 
-针对每个 issue, 输出一个完整重写的 section, 用以下结构分隔:
+针对每个已匹配 target, 输出一个完整重写的 section；同一 section 的多个 issue 已合并为一个 target。使用 target 的 `patch_id` 分隔:
 
 ```
-<<< SECTION_PATCH issue_0
+<<< SECTION_PATCH section_0
 <重写后的整段 markdown, 含原 heading>
 >>>
-<<< SECTION_PATCH issue_1
+<<< SECTION_PATCH section_1
 ...
 >>>
 ```
 
 要求:
 - 每个 section_patch 必须以原 section 的 heading (e.g., `### 5.1.2 求解算法`) 开头
-- 不要输出 `<前言>` 或 `<未匹配>` 类的 patch (无法精确定位的, 在新增章节里说明)
+- `section_text` 是将被整体替换的完整原文，不会截断；必须在保留未涉问题内容的前提下定向修改
+- 不要输出 `<前言>` 或 `<未匹配>` 类的 patch；无法精确定位时先补充 heading 或人工处理
 - 不要修改未列出的 issue 涉及的 section
 """
 
 
 def apply_section_patches(artifact: str, patches_text: str) -> str:
     """
-    应用 section_patch 输出到 artifact (替代原错误的 zip+replace 实现)
+    应用 section_patch 输出到 artifact (替代原错误的 zip+replace 实现).
+
+    所有 patch 必须能唯一定位。未知 heading、重复 heading 或同一 heading
+    被多个 patch 命中时直接失败，避免看似成功但实际丢修订。
     """
     pattern = re.compile(r"<<< SECTION_PATCH (\S+)\s*\n(.*?)\n>>>", re.DOTALL)
-    patches = {m.group(1): m.group(2) for m in pattern.finditer(patches_text)}
+    matches = list(pattern.finditer(patches_text))
+    if not matches:
+        raise ValueError("没有找到有效的 SECTION_PATCH 块")
+
+    patch_ids = [match.group(1) for match in matches]
+    duplicate_ids = sorted({patch_id for patch_id in patch_ids if patch_ids.count(patch_id) > 1})
+    if duplicate_ids:
+        raise ValueError(f"重复的 patch id: {duplicate_ids}")
 
     lines = artifact.splitlines()
     sections = split_sections(artifact)
 
-    # 按 heading 索引
-    heading_to_range = {h: (s, e) for h, s, e in sections}
+    # 同名 heading 不能用标题唯一定位，保留所有 range 以便显式报错。
+    heading_to_ranges: dict[str, list[tuple[int, int]]] = {}
+    for heading, start, end in sections:
+        heading_to_ranges.setdefault(heading, []).append((start, end))
 
     # 应用补丁: 每个 patch 第一行应该是 heading, 用其定位
     new_lines = list(lines)
     edits = []  # (start, end, replacement_lines)
-    for issue_id, patch_text in patches.items():
+    targeted_headings = set()
+    for match in matches:
+        issue_id, patch_text = match.group(1), match.group(2)
         patch_lines = patch_text.splitlines()
         if not patch_lines:
-            continue
+            raise ValueError(f"patch {issue_id} 内容为空")
         first_line = patch_lines[0].strip()
-        if first_line in heading_to_range:
-            start, end = heading_to_range[first_line]
-            edits.append((start, end, patch_lines))
-        # else: 无法定位的 patch 静默丢弃 (要求输出格式时已禁止)
+        ranges = heading_to_ranges.get(first_line, [])
+        if not ranges:
+            raise ValueError(f"patch {issue_id} 的 heading 无法定位: {first_line!r}")
+        if len(ranges) > 1:
+            raise ValueError(
+                f"patch {issue_id} 的 heading 在 artifact 中重复, 无法唯一定位: {first_line!r}"
+            )
+        if first_line in targeted_headings:
+            raise ValueError(f"多个 patch 指向同一 heading: {first_line!r}")
+        targeted_headings.add(first_line)
+        start, end = ranges[0]
+        edits.append((start, end, patch_lines))
 
     # 倒序应用避免行号偏移
     edits.sort(key=lambda x: x[0], reverse=True)
     for start, end, repl in edits:
         new_lines[start:end + 1] = repl
 
-    return "\n".join(new_lines)
+    result = "\n".join(new_lines)
+    if artifact.endswith("\n"):
+        result += "\n"
+    return result
 
 
 def build_unified_diff_prompt(artifact_path: str, critique: dict) -> str:
@@ -193,37 +237,87 @@ issues:
 
 def apply_unidiff(artifact: str, diff_text: str) -> str:
     """
-    用 unidiff 库严格应用 patch (替代原错误的 zip+replace)
+    用 unidiff 解析 patch，并以原 artifact 为唯一基准一次性重建结果。
+
+    每个 context / removed 行都必须与原文逐字匹配；多个 hunk 按原始行号
+    递增且不可重叠。这样前一个 hunk 改变行数时不会让后一个 hunk 偏移。
     """
     try:
         from unidiff import PatchSet
     except ImportError:
-        raise ImportError("需 pip install unidiff (见 templates/requirements.txt)")
+        raise ImportError("需 pip install unidiff (见 templates/shared/requirements.txt)")
 
-    patch = PatchSet.from_string(diff_text)
-    lines = artifact.splitlines()
+    try:
+        patch = PatchSet.from_string(diff_text)
+    except Exception as exc:
+        raise ValueError(f"unified diff 无法解析: {exc}") from exc
 
-    for patched_file in patch:
-        for hunk in patched_file:
-            # hunk.source_start 是 1-based, 我们要 0-based
-            new_lines = []
-            old_idx = hunk.source_start - 1
-            for line in hunk:
-                if line.is_context:
-                    new_lines.append(line.value.rstrip("\n"))
-                elif line.is_added:
-                    new_lines.append(line.value.rstrip("\n"))
-                # is_removed: 跳过
-            # 替换原文件 [source_start-1, source_start-1+source_length] 区间
-            end = old_idx + hunk.source_length
-            lines[old_idx:end] = new_lines
-    return "\n".join(lines)
+    patched_files = list(patch)
+    if len(patched_files) != 1:
+        raise ValueError(f"unified diff 必须且只能修改一个文件，实际 {len(patched_files)}")
+    patched_file = patched_files[0]
+    if patched_file.is_added_file or patched_file.is_removed_file:
+        raise ValueError("仅允许修改现有 artifact，不允许新增或删除文件")
+
+    hunks = list(patched_file)
+    if not hunks:
+        raise ValueError("unified diff 不包含 hunk")
+
+    original = artifact.splitlines()
+    rebuilt = []
+    cursor = 0
+    for hunk_index, hunk in enumerate(hunks):
+        start = max(hunk.source_start - 1, 0)
+        if start < cursor:
+            raise ValueError(f"hunk {hunk_index} 与前一 hunk 重叠或未按原始行号排序")
+        if start > len(original):
+            raise ValueError(f"hunk {hunk_index} 起始行超出 artifact")
+
+        rebuilt.extend(original[cursor:start])
+        source_cursor = start
+        target_count = 0
+        for patch_line in hunk:
+            value = patch_line.value.rstrip("\r\n")
+            if patch_line.is_context or patch_line.is_removed:
+                if source_cursor >= len(original) or original[source_cursor] != value:
+                    actual = "<EOF>" if source_cursor >= len(original) else original[source_cursor]
+                    raise ValueError(
+                        f"hunk {hunk_index} 原文校验失败于第 {source_cursor + 1} 行: "
+                        f"expected={value!r}, actual={actual!r}"
+                    )
+                if patch_line.is_context:
+                    rebuilt.append(original[source_cursor])
+                    target_count += 1
+                source_cursor += 1
+            elif patch_line.is_added:
+                rebuilt.append(value)
+                target_count += 1
+
+        consumed = source_cursor - start
+        if consumed != hunk.source_length:
+            raise ValueError(
+                f"hunk {hunk_index} source_length 不一致: "
+                f"header={hunk.source_length}, parsed={consumed}"
+            )
+        if target_count != hunk.target_length:
+            raise ValueError(
+                f"hunk {hunk_index} target_length 不一致: "
+                f"header={hunk.target_length}, parsed={target_count}"
+            )
+        cursor = source_cursor
+
+    rebuilt.extend(original[cursor:])
+    result = "\n".join(rebuilt)
+    if artifact.endswith("\n"):
+        result += "\n"
+    return result
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--artifact", type=str, required=True)
-    parser.add_argument("--critique", type=str, required=True)
+    parser.add_argument("--critique", type=str, default=None,
+                        help="生成 patch prompt 时必填; --apply 模式不需要")
     parser.add_argument("--mode", choices=["section", "diff"], default="section")
     parser.add_argument("--output", type=str, default=None,
                         help="输出 prompt 到文件 (不指定则 stdout)")
@@ -234,18 +328,27 @@ def main():
     if args.apply:
         artifact = load_artifact(args.artifact)
         patch_text = Path(args.apply).read_text(encoding="utf-8")
-        if args.mode == "section":
-            new_artifact = apply_section_patches(artifact, patch_text)
-        else:
-            new_artifact = apply_unidiff(artifact, patch_text)
+        try:
+            if args.mode == "section":
+                new_artifact = apply_section_patches(artifact, patch_text)
+            else:
+                new_artifact = apply_unidiff(artifact, patch_text)
+        except (ImportError, ValueError) as exc:
+            parser.exit(1, f"[FAIL] {exc}\n")
         print(new_artifact)
         return 0
 
+    if not args.critique:
+        parser.error("生成 patch prompt 时必须提供 --critique")
+
     critique = load_critique(args.critique)
-    if args.mode == "section":
-        prompt = build_section_patch_prompt(args.artifact, critique)
-    else:
-        prompt = build_unified_diff_prompt(args.artifact, critique)
+    try:
+        if args.mode == "section":
+            prompt = build_section_patch_prompt(args.artifact, critique)
+        else:
+            prompt = build_unified_diff_prompt(args.artifact, critique)
+    except ValueError as exc:
+        parser.exit(1, f"[FAIL] {exc}\n")
 
     if args.output:
         Path(args.output).write_text(prompt, encoding="utf-8")

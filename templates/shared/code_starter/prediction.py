@@ -19,6 +19,20 @@ Path("results").mkdir(exist_ok=True)
 Path("figures").mkdir(exist_ok=True)
 
 
+def _safe_mape(y_true, y_pred, zero_tol=1e-12):
+    """计算 MAPE, 并排除真实值为 0 的未定义项。
+
+    若所有真实值均为 0, MAPE 在数学上未定义, 返回 ``np.nan``。
+    """
+    y_true = np.asarray(y_true, dtype=float)
+    y_pred = np.asarray(y_pred, dtype=float)
+    y_true, y_pred = np.broadcast_arrays(y_true, y_pred)
+    valid = np.abs(y_true) > zero_tol
+    if not np.any(valid):
+        return np.nan
+    return float(np.mean(np.abs((y_true[valid] - y_pred[valid]) / y_true[valid])) * 100)
+
+
 # ============================================================
 # 1. 线性 / Ridge / RF 回归
 # ============================================================
@@ -89,7 +103,14 @@ def gm11(y, predict_steps=5):
     Returns:
         dict with keys: predicted, residual_corrected, params
     """
+    y = np.asarray(y, dtype=float).reshape(-1)
     n = len(y)
+    if n < 2:
+        raise ValueError("GM(1,1) 至少需要 2 个观测值")
+    if not np.all(np.isfinite(y)):
+        raise ValueError("y 不能包含 NaN 或无穷大")
+    if not isinstance(predict_steps, (int, np.integer)) or predict_steps < 0:
+        raise ValueError("predict_steps 必须是非负整数")
     # 1. 累加生成
     y_cum = np.cumsum(y)
     # 2. 构造 Z 序列 (邻均值)
@@ -100,10 +121,14 @@ def gm11(y, predict_steps=5):
     a, b = np.linalg.lstsq(B, Y, rcond=None)[0]
     # 4. 预测
     n_total = n + predict_steps
-    y_cum_pred = np.zeros(n_total)
-    y_cum_pred[0] = y[0]
-    for k in range(1, n_total):
-        y_cum_pred[k] = (y[0] - b/a) * np.exp(-a * k) + b/a
+    k = np.arange(n_total, dtype=float)
+    if abs(a) <= 1e-12:
+        # a -> 0 时的解析极限, 避免 b/a 除零。
+        y_cum_pred = y[0] + b * k
+    else:
+        exponent = -a * k
+        # 与 (y0 - b/a)exp(-ak) + b/a 等价, expm1 在 a 很小时更稳定。
+        y_cum_pred = y[0] * np.exp(exponent) - b * np.expm1(exponent) / a
     # 5. 还原
     y_pred = np.diff(np.concatenate([[0], y_cum_pred]))
     # 6. 残差修正 (在原始数据范围内)
@@ -115,12 +140,12 @@ def gm11(y, predict_steps=5):
         "predicted": y_pred_corrected,
         "residual": residuals,
         "params": {"a": a, "b": b},
-        "in_sample_mape": np.mean(np.abs(residuals / y)) * 100,
+        "in_sample_mape": _safe_mape(y, y_pred[:n]),
     }
 
 
 # ============================================================
-# 4. 组合预测 (加权)  ⭐ 一等奖加分
+# 4. 组合预测 (加权；需要用验证误差或明确依据确定权重)
 # ============================================================
 def ensemble_prediction(predictions_dict, weights=None):
     """
@@ -152,7 +177,7 @@ def residual_diagnostics(y_true, y_pred):
     metrics = {
         "MAE": mean_absolute_error(y_true, y_pred),
         "RMSE": np.sqrt(mean_squared_error(y_true, y_pred)),
-        "MAPE": np.mean(np.abs(residuals / np.maximum(np.abs(y_true), 1e-9))) * 100,
+        "MAPE": _safe_mape(y_true, y_pred),
         "R2": r2_score(y_true, y_pred),
         "DurbinWatson": sm.stats.durbin_watson(residuals),
     }

@@ -1,9 +1,9 @@
 # CUMCM 国赛实测分布 (empirical_notes)
 
 > **结构化数据见同目录 `empirical.json`** — 本文件是人读副本 + 历史采样备份, 运行时不直接读。
-> 数据源: 总样本 91 篇国赛论文 (2023-2025), 其中 59 篇可自动 PDF 提取。
+> 数据源: 来源清单 91 份公开论文文件 (2023-2025), 其中 59 份可自动提取足够文本并进入统计。
 > 烘焙时间: 2026-05-05T20:30:21, 由 `scripts/ingest_papers.py` 生成 (已存档)。
-> L1 critic 评硬阈值维度时由 `score_artifact.py` 从 `empirical.json` 注入分位数据到 evidence 字段。
+> L1 critic 需要经验锚点或异常提示时，由 `score_artifact.py` 从 `empirical.json` 读取分位数据并单独展示；这些观察值不是官方硬阈值。
 
 ---
 
@@ -25,7 +25,7 @@
 
 ## 2. 摘要质量信号
 
-- **含定量结果比例**: 62.7% (anti_pattern A1 阈值 — 一等奖应 ≥80%)
+- **解析器命中定量结果比例**: 62.7%（用于提醒摘要是否缺少可追溯结果，不是质量阈值）
 - **5 段式完整命中 (≥4 anchor)**: 27.1%
 - **5 段式部分命中 (≥3 anchor)**: 72.9%
 
@@ -117,13 +117,6 @@
 
 ---
 
-## 与 winning_patterns.md 阈值的对照
+## 使用限制
 
-`winning_patterns.md` 当前的预设阈值 (estimate) vs 本文件的实测分位 (empirical):
-
-- 摘要字数: estimate=600-900 vs empirical=p25-p75 [748, 1146], median=992
-- 图数: estimate=18-25 vs empirical=p25-p75 [5, 20], median=8
-- 公式数: estimate=60-100 vs empirical=p25-p75 [12, 67], median=24
-- 引用数: estimate=≥10 vs empirical=p25-p75 [16, 63], median=28
-
-如 estimate 与 empirical 偏差 >20%, 建议手动更新 `winning_patterns.md` 对应阈值。
+分位数反映这 59 份可提取文件和当前解析器，题型、年份、来源与 PDF 结构都会影响结果。图、表、公式和数字引用的自动计数可能重复或漏记；2025 年子集尤其小，不能据此比较年份质量。使用时先把它当异常提示，再回到题意、真实结果与官方规则判断。

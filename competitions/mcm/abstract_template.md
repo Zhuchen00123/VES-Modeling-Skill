@@ -1,103 +1,71 @@
-<!-- SEED v0.1 — MCM 1-page Summary + Letter to Policymakers 双模板。 -->
+# MCM/ICM Summary Sheet content template
 
-# MCM Abstract Templates (SEED v0.1)
+> `01_abstract.md` contains only the Summary text; `main.tex` supplies the heading and first-page wrapper. Confirm the current COMAP form and problem-specific requirements before rendering.
 
-MCM 的"摘要"实际是 **1-page Summary** (250-350 词, 单页内放完)。D/E/F 题额外要 **Letter / Memo**。
+## What the first-page Summary must communicate
 
----
+A fast reader should be able to identify:
 
-## A. 1-Page Summary Template
+1. the decision or phenomenon being modeled;
+2. the team's decomposition and why each method fits;
+3. the most decision-relevant results, with units and traceable sources;
+4. how the results were tested;
+5. one important limitation or condition for use.
 
-> 占位: `{...}`。目标 250-330 词, 单页 pdflatex 渲染后核对。
+COMAP's page requirement is authoritative; this repository does not impose a universal word count or a fixed number of results.
 
-```
-{Problem framing — 1 sentence: "We address the problem of {what}, which arises in {context}."}
+## Fillable Summary text
 
-{Approach — 2-3 sentences: "We develop a {model class} that combines {method A} with {method B}.
-Our novel contribution is {specific extension}. We solve via {algorithm} and validate
-against {baseline}."}
+```text
+We address {decision/problem} under {important constraints and data scope}. We divide the
+problem into {subproblems and dependency}, because {reason the decomposition is useful}.
 
-{Key results — 3-4 sentences with quantitative numbers:
-"On {scenario 1}, our method achieves {metric} = {value}, a {X}% improvement over {baseline}.
-Multivariate sensitivity analysis confirms robustness within ±{Y}% of key parameters {p1, p2, p3}.
-For {scenario 2}, the optimal {decision variable} is {value}, yielding {outcome} = {value}.
-Counterfactual experiments show that {finding}."}
+For {subproblem 1}, we formulate {model and objective} and solve it with {method}. For
+{subproblem 2}, we use {upstream result/version} to {purpose}. {Additional method} is used
+only where {evidence for the design choice}. We compare the final design with {credible
+baseline or alternative}.
 
-{Caveat / scope — 1 sentence: "These results assume {assumption}; we discuss limitations in §X."}
+The analysis yields {result A, value, unit, reference to table/figure}, {result B}, and
+{result C when material}. {Validation method} shows {quantified error/feasibility/robust
+range}. The conclusion changes when {failure condition or material assumption}.
 
-{Bold takeaway — 1 sentence: "Our analysis suggests that {actionable insight for decision-maker}."}
+These results support {specific decision or interpretation}. They should be recalibrated
+when {data, environment, or stakeholder condition} changes.
 
-Keywords: {3-5 keywords, comma-separated}
-```
-
-### Filled example (A 题, optimization)
-
-```
-We address the problem of optimizing renewable energy dispatch in a regional grid under
-stochastic demand, motivated by the 2024 ICM problem A.
-
-We develop a stochastic dynamic programming model that combines Markov decision processes
-with chance-constrained optimization. Our novel contribution is a Time-Aware Bellman update
-that exploits diurnal demand patterns. We solve via approximate dynamic programming and
-validate against a deterministic LP baseline.
-
-On a 90-day test horizon, our method reduces total cost by 23.4% compared to LP (Table 5)
-and meets the 99% reliability constraint in 96.7% of Monte Carlo runs. Sensitivity analysis
-across demand variance, fuel price, and storage efficiency (LHS, n=500) confirms robust
-performance within ±15% perturbation. Counterfactual analysis shows that doubling storage
-capacity yields diminishing returns above 1.4× current size.
-
-These results assume perfect short-term demand forecasts; real-world forecast error of
-~5% is discussed in §7. Our analysis suggests that grid operators can reduce dispatch
-cost by 20%+ with modest investment in storage and updated control policy.
-
-Keywords: stochastic optimization, energy dispatch, dynamic programming, sensitivity analysis
+Keywords: {problem domain}, {core method}, {validation method}, {application}
 ```
 
-(约 230 词。可加 1-2 句到 280 词左右。)
+Every number must already exist in the body or a saved result artifact. Do not put an expected improvement, fabricated example, or unverified citation on the Summary Sheet.
 
----
+## Conditional letter or memo
 
-## B. Letter to Policymakers Template (D/E/F 题强制)
+Create a stakeholder deliverable only if the current problem explicitly asks for one. Put it in the main solution before References and count it inside the official page limit unless the problem states otherwise.
 
-```
-Dear {Stakeholder Title — e.g. "Mayor of {City}", "Director of {Agency}"},
+```text
+Dear {named role or stakeholder},
 
-We are writing to share findings from our analysis of {issue}, which we believe may
-inform your upcoming decision on {decision}.
+{Why this decision matters, in the stakeholder's language.}
 
-Our team examined {problem in plain language, 2-3 sentences, no jargon}. The central
-question we addressed is: {question}. {Briefly: what data / what scope, in plain terms}.
+Our analysis of {scope and evidence} indicates {plain-language finding}. We recommend:
 
-Based on our analysis, we offer three actionable recommendations:
+1. {Action}, because {evidence and expected effect}.
+2. {Action}, because {evidence and expected effect}.
+3. {Additional action only when supported}.
 
-1. **{Action 1}**. {1 sentence rationale}. {Expected impact in plain terms}.
-
-2. **{Action 2}**. {...}.
-
-3. **{Action 3}**. {...}.
-
-We note that these recommendations rest on the assumption that {assumption}.
-They should be revisited if {condition} changes — most importantly, {specific
-trigger that would invalidate the recommendation}.
-
-Our team would be happy to discuss the technical details with your staff if useful.
+These recommendations assume {material assumption}. Revisit them if {measurable trigger}
+changes, because {affected conclusion}.
 
 Sincerely,
-
-Team #{Control Number}
+Team #{control number}
 ```
 
-### 长度目标
-- 1-2 页 (350-700 词)
-- 无公式 / 无算法名 / 无章节编号
-- 无引文 (引文留正文)
+Use as many recommendations as the evidence supports; the repository does not impose a universal count. Remove formulas and unexplained jargon, but retain the caveat and traceable reasoning.
 
-### 强制 anchor (5 个)
-1. ✅ 称呼 (Dear ...)
-2. ✅ Context 段
-3. ✅ ≥3 numbered recommendations with action verbs
-4. ✅ Caveat 段 (assumption + when to revisit)
-5. ✅ Closing (Sincerely + Team #)
+## Final checks
 
-L1 critic 检查这 5 个 anchor 的命中数; ≥ 4 才 pass。
+- [ ] page 1 uses the current Summary Sheet and contains no identity information;
+- [ ] the title, problem choice, and control number placeholders are replaced;
+- [ ] the Summary agrees with the body, figures, and saved results;
+- [ ] no forced claim of novelty appears without a specific implemented difference;
+- [ ] any problem-specific deliverable follows the exact current prompt;
+- [ ] AI-assisted material and tools are cited/disclosed under the current rules.
