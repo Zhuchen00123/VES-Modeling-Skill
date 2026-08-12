@@ -82,6 +82,25 @@ Before moving on, verify:
 - claims and citations are verifiable;
 - limitations name a concrete failure mode and mitigation.
 
+## 4.5 VES-verified metrics only (regression/prediction subproblems)
+
+For every subproblem marked `ves_eligibility=true` in Stage 2:
+
+- cite only metrics from the normalized manifest written by
+  `scripts/run_ves_regression.py` whose `result.status == "verified"`;
+- write `ves_run_id`, `ves_status`, `verified_rmse`, `verified_mae`,
+  `evidence_ref`, and `manifest_path` into the decision log before drafting
+  the corresponding paper section (see `references/ves_regression.md`);
+- never copy `claimed_rmse`/`score` self-reports from candidates, never cite a
+  `no_verified` run as evidence, and never present an unknown-test prediction
+  as host-verified (`apply_regression_solution` 只产出 `produced_unverified`，
+  必须标注“已生成、未验证”，不得作 verified 证据);
+- set `decision_log.stages.8.compliance.ves_metrics_verified = true` only when
+  every cited regression number is backed by a verified manifest.
+
+The paper remains LaTeX-first: numbers enter the `.tex` only through the
+verified manifest/decision-log values, not through regenerated prose.
+
 ## 5. Apply the competition branch
 
 | Competition | Current repository baseline | Renderer |
@@ -125,6 +144,8 @@ Use the five Stage 8 dimensions from `competitions/<competition>/rubric_overlay.
 
 - all required sections and problem-specific deliverables exist;
 - the paper agrees with the Stage 0–7 decision log;
+- for regression/prediction subproblems, every cited metric is a normalized
+  `status=verified` value with `evidence_ref`/`manifest_path` present;
 - the current official rules were rechecked and recorded;
 - AI uses and citations are logged;
 - the active competition's renderer includes every section;

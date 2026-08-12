@@ -1,21 +1,19 @@
 # Harness 兼容协议 (Claude Code / Codex)
 
-本文件定义 mathmodel-skill 在不同 agentic harness 下运行时的**统一行为约定**。从 v6.0 起, Codex 以原生 skill / plugin 形态发现本仓库, 但 skill 主体内容 (`SKILL.md`, `stage_NN.md`, `competitions/*`) 仍为 harness-agnostic, 仅在以下方面有差异。
+本文件定义 ves-mathmodel-skill 在不同 agentic harness 下运行时的**统一行为约定**。skill 主体内容 (`SKILL.md`, `stage_NN.md`, `references/ves_regression.md`, `competitions/*`) 为 harness-agnostic, 仅在以下方面有差异。
 
 ---
 
-## 0. Codex V6 发现与安装
+## 0. Codex 发现与安装
 
 Codex 推荐安装位置:
 
 | 场景 | 位置 |
 |------|------|
-| 用户级 skill | `$HOME/.agents/skills/mathmodel-skill/` |
-| 项目级 skill | `<repo>/.agents/skills/mathmodel-skill/` |
-| 项目级 instructions | `<repo>/AGENTS.md` |
-| plugin 分发 | `.codex-plugin/plugin.json` 声明 `skills: "./skills/"` |
+| 用户级 skill | `$HOME/.agents/skills/ves-mathmodel-skill/` |
+| 项目级 skill | `<repo>/.agents/skills/ves-mathmodel-skill/` |
 
-Codex 触发优先依赖 `SKILL.md` frontmatter 的 `description`; UI 展示与默认提示依赖 `agents/openai.yaml`。Plugin 模式通过 `skills/mathmodel-skill/SKILL.md` shim 进入根目录主 `SKILL.md`。`AGENTS.md` 只作为 repo/workspace 指导文件, 不应复制完整 workflow。
+Codex 触发优先依赖 `SKILL.md` frontmatter 的 `description`; UI 展示与默认提示依赖 `agents/openai.yaml`。本 skill 以自包含目录分发, 不依赖 plugin shim (`skills/` shim / `.codex-plugin/`) 或仓库级 `AGENTS.md`。
 
 ---
 
@@ -123,7 +121,7 @@ python <skill>/scripts/render_paper.py --workspace paper_workspace/
 |---------|---------|
 | Claude Code | `SKILL.md` description 明确限定 CUMCM、MCM/ICM、电工杯及“数学建模竞赛论文”任务；仅说“建模”“A 题”或普通数据分析时不应触发 |
 | Codex | 安装到 `.agents/skills/` 后由同一 `SKILL.md` description 触发；`agents/openai.yaml` 提供 UI 展示和默认 prompt，原生选择 UI 不可用时才回退编号列表 |
-| Plugin | `.codex-plugin/plugin.json` 声明 `skills: "./skills/"` 并随 GitHub Release 分发 |
+| Plugin | N/A（本 fork 以自包含 skill 目录分发，不提供 `.codex-plugin` 插件形态） |
 
 ---
 
@@ -134,6 +132,6 @@ python <skill>/scripts/render_paper.py --workspace paper_workspace/
 - [ ] decision_log.json schema 完全一致 (含 v6 兼容字段)
 - [ ] scripts/*.py 退出码与输出 JSON 一致
 - [ ] cwd 下生成的目录结构 (state/results/figures/paper_workspace) 一致
-- [ ] Codex 安装包含 `agents/openai.yaml` 与 `.codex-plugin/plugin.json`
+- [ ] Codex 安装包含 `agents/openai.yaml`（本 fork 不要求 `.codex-plugin/plugin.json`）
 
 任何一项不符 = 该 harness 适配未完成。
