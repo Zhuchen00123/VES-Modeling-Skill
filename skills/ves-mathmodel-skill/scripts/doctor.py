@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Preflight checks for the mathmodel-skill package and local toolchain."""
+"""Preflight checks for the ves-mathmodel-skill package and local toolchain."""
 
 from __future__ import annotations
 
@@ -124,19 +124,19 @@ def run_checks(
 
     required_paths = (
         "SKILL.md",
-        "AGENTS.md",
         "agents/openai.yaml",
-        ".codex-plugin/plugin.json",
         "config/dim_weights.json",
         "templates/shared/decision_log.json",
         "scripts/score_artifact.py",
         "scripts/extract_diff.py",
         "scripts/render_paper.py",
         "scripts/render_ai_usage.py",
+        "scripts/run_ves_regression.py",
         "templates/shared/ai_usage_ledger.json",
         "templates/latex/cumcm/main.tex",
         "templates/latex/mcm/main.tex",
         "templates/latex/diangong/main.tex",
+        "references/ves_regression.md",
     )
     missing = [item for item in required_paths if not (SKILL_ROOT / item).is_file()]
     checks.append(_check(
@@ -146,15 +146,14 @@ def run_checks(
     ))
 
     skill_name = _frontmatter_name(SKILL_ROOT / "SKILL.md")
-    shim_name = _frontmatter_name(SKILL_ROOT / "skills" / "mathmodel-skill" / "SKILL.md")
+    shim_name = _frontmatter_name(SKILL_ROOT / "skills" / "ves-mathmodel-skill" / "SKILL.md")
     checks.append(_check(
         "skill-metadata",
-        skill_name == "mathmodel-skill" and shim_name == "mathmodel-skill",
-        f"root={skill_name!r}, plugin-shim={shim_name!r}",
+        skill_name == "ves-mathmodel-skill" and shim_name is None,
+        f"root={skill_name!r}, plugin-shim=absent (not distributed)",
     ))
 
     json_paths = [
-        SKILL_ROOT / ".codex-plugin" / "plugin.json",
         SKILL_ROOT / "config" / "dim_weights.json",
         SKILL_ROOT / "templates" / "shared" / "decision_log.json",
         SKILL_ROOT / "templates" / "shared" / "ai_usage_ledger.json",
@@ -183,7 +182,7 @@ def run_checks(
     decision = parsed.get(decision_path, {})
     decision_schema_ok = (
         isinstance(decision, dict)
-        and decision.get("_schema_version") == "3.1"
+        and decision.get("_schema_version") in ("3.1", "3.2")
         and isinstance(decision.get("stages"), dict)
         and isinstance(decision.get("scores"), dict)
         and isinstance(decision.get("iterations"), dict)
@@ -194,9 +193,9 @@ def run_checks(
     checks.append(_check(
         "decision-log-schema",
         decision_schema_ok,
-        "decision_log schema 3.1 with compliance state"
-        if decision_schema_ok else "decision_log template is not a complete v3.1 state",
-        "Restore the v3.1 decision-log template before using the workflow."
+        f"decision_log schema {decision.get('_schema_version')!r} with compliance state"
+        if decision_schema_ok else "decision_log template is not a complete v3.1/v3.2 state",
+        "Restore the v3.1/v3.2 decision-log template before using the workflow."
         if not decision_schema_ok else None,
     ))
 
@@ -270,7 +269,7 @@ def run_checks(
             compliance = value.get("compliance") if isinstance(value, dict) else None
             valid = (
                 ok and isinstance(value, dict)
-                and value.get("_schema_version") == "3.1"
+                and value.get("_schema_version") in ("3.1", "3.2")
                 and value.get("competition") == competition
                 and isinstance(value.get("current_stage"), int)
                 and not isinstance(value.get("current_stage"), bool)
@@ -358,7 +357,7 @@ def _print_human(checks: list[Check]) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Check mathmodel-skill readiness.")
+    parser = argparse.ArgumentParser(description="Check ves-mathmodel-skill readiness.")
     parser.add_argument("--competition", choices=COMPETITIONS, default="cumcm")
     parser.add_argument("--workspace", type=Path, default=None)
     parser.add_argument("--json", action="store_true", dest="as_json")

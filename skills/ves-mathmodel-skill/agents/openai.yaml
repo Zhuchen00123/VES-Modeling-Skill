@@ -1,0 +1,4 @@
+interface:
+  display_name: "VES-MathModel｜数学建模工作流"
+  short_description: "让三类数学建模竞赛从选题到终稿持续收敛；回归/预测子问题走 VES 宿主验证"
+  default_prompt: "Use $ves-mathmodel-skill to guide my team from problem selection through a compliant final submission, handing regression/prediction subproblems to the VES host verifier."
