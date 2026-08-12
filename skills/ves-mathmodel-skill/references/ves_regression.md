@@ -2,6 +2,8 @@
 
 > 本文档是回归/预测类子问题接入 VES 宿主验证的唯一契约。Stage 2/3/5/8/9 的相关字段定义以本文档为准；`decision_log.json` v3.2 只保存契约要求的稳定字段。
 
+> 其他 VES slice（分类、时序、优化、ODE 等 25 类）走通用调度器 `scripts/run_ves_problem.py`，契约见 `references/ves_adaptation.md`；本文为回归专项。
+
 ## 1. 边界 (谁负责什么)
 
 ```

@@ -132,11 +132,13 @@ def run_checks(
         "scripts/render_paper.py",
         "scripts/render_ai_usage.py",
         "scripts/run_ves_regression.py",
+        "scripts/run_ves_problem.py",
         "templates/shared/ai_usage_ledger.json",
         "templates/latex/cumcm/main.tex",
         "templates/latex/mcm/main.tex",
         "templates/latex/diangong/main.tex",
         "references/ves_regression.md",
+        "references/ves_adaptation.md",
     )
     missing = [item for item in required_paths if not (SKILL_ROOT / item).is_file()]
     checks.append(_check(

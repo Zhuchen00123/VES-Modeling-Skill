@@ -87,16 +87,17 @@ Before moving on, verify:
 For every subproblem marked `ves_eligibility=true` in Stage 2:
 
 - cite only metrics from the normalized manifest written by
-  `scripts/run_ves_regression.py` whose `result.status == "verified"`;
-- write `ves_run_id`, `ves_status`, `verified_rmse`, `verified_mae`,
-  `evidence_ref`, and `manifest_path` into the decision log before drafting
-  the corresponding paper section (see `references/ves_regression.md`);
+  `scripts/run_ves_regression.py` (回归) or `scripts/run_ves_problem.py`
+  (其他 slice, 见 `references/ves_adaptation.md`) whose `result.status == "verified"`;
+- write `ves_run_id`, `ves_slice`, `ves_status`, `ves_metrics`（回归另存
+  `verified_rmse`/`verified_mae`）, `evidence_ref`, and `manifest_path` into the
+  decision log before drafting the corresponding paper section;
 - never copy `claimed_rmse`/`score` self-reports from candidates, never cite a
   `no_verified` run as evidence, and never present an unknown-test prediction
   as host-verified (`apply_regression_solution` 只产出 `produced_unverified`，
   必须标注“已生成、未验证”，不得作 verified 证据);
 - set `decision_log.stages.8.compliance.ves_metrics_verified = true` only when
-  every cited regression number is backed by a verified manifest.
+  every cited VES number is backed by a verified manifest.
 
 The paper remains LaTeX-first: numbers enter the `.tex` only through the
 verified manifest/decision-log values, not through regenerated prose.
