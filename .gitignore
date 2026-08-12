@@ -1,29 +1,22 @@
-# 用户运行时产物
-state/decision_log.json
-state/scores.json
-state/iteration_counts.json
-results/
-figures/
-paper_workspace/
-paper_output/
-*.aux
-*.log
-*.toc
-*.out
+# Internal multi-agent coordination state
+.agteam/
+team/
 
 # Python
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
 .pytest_cache/
-.venv/
-venv/
+.mypy_cache/
+.ruff_cache/
 
-# 蒸馏后 PDF 已删, 防误提交大文件
-references/papers/*.pdf
+# Modeling run artifacts
+runs/
+state/
+results/
+figures/
+paper_workspace/
 
-# OS / 编辑器
+# Editor / OS
 .DS_Store
-Thumbs.db
 .idea/
 .vscode/

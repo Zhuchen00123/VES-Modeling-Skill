@@ -183,6 +183,30 @@ else:
 
 不通过任一项 → 回 A 检查模型。
 
+### C2. VES 宿主验证 (回归/预测子问题强制)
+
+凡 Stage 2 标记 `ves_eligibility=true` 的 Qi，必须用宿主验证替换/补充自评，**不得直接相信 candidate 自评分**。契约全文见 `references/ves_regression.md`。
+
+```bash
+# 从用户项目目录调用 skill 内薄 adapter（只调公开模块 ves_modeling.regression）
+python <skill>/scripts/run_ves_regression.py \
+  --public-dir <项目>/data/public \
+  --host-dir <项目>/data/host \
+  --workspace <项目>/ves_runs \
+  --output <项目>/state/ves_regression_manifest.json \
+  --dataset-name <题号+Qi> \
+  --generator mock          # 仅可信夹具本地；真实候选用 llm + Docker
+  # 行序/ID 无法保证时显式: --assume-row-order
+```
+
+规则:
+- `status=verified` 才可写入 `verified_rmse/verified_mae` 并最终进论文；`no_verified`（CLI 退出码 3）不是成功证据。
+- 输出是 normalized manifest（schema 1.1，仅稳定字段，原子写）；`best_evidence/records/best_code` 内容不序列化，只留路径与 sha256；数据契约（`target_column/id_column/row_order/split_metadata`）与 `capabilities()`/`API_SCHEMA_VERSION` 一并记录。
+- 未知官方测试集预测使用 `--apply`（`apply_regression_solution`）：状态恒为 `produced_unverified`，只记录预测文件、哈希与 runner 信息，绝不写 RMSE/MAE。
+- `generator=mock` 仅限可信夹具本地；真实候选必须 `generator=llm` + Docker。
+- 前置校验 fail-closed：public 泄漏 `hidden_test_labels.csv`、特征不一致、行序/ID 无法保证 → 报错停止。
+- 非回归/预测 Qi（`out_of_ves_scope=true`）跳过本节，走常规本地验证。
+
 ### D. 子灵敏度 (按需)
 
 只对本子问题中会影响结论、且存在测量误差、估计误差或情景不确定性的参数做局部灵敏度 (全局留 stage 6)。扰动范围来自数据精度、置信区间、规则边界或领域证据；若没有有意义的不确定参数，记录理由并跳过，不生成装饰性曲线:
@@ -231,6 +255,12 @@ plt.savefig("figures/Q1_sensitivity.png", dpi=300)
 ```json
 {
   "model_name": "...",
+  "ves_run_id": "<run_id 或 null>",
+  "ves_status": "verified | no_verified | null",
+  "verified_rmse": null,
+  "verified_mae": null,
+  "evidence_ref": "<ves_run_id + provenance hash 引用>",
+  "manifest_path": "<state/ves_regression_manifest.json>",
   "math_formulation_path": "results/Q1_model.tex",
   "code_path": "results/Q1_solve.py",
   "results_path": "results/Q1_x.npy",
@@ -412,6 +442,7 @@ python <skill>/scripts/score_artifact.py \
 3. 所有有依据的依赖链已实现并验证；不存在合理依赖时已有明确记录
 4. (championship) red-team 一次,针对最弱的 Qi (优先 review_qis)
 5. 触发 L2: 跨阶段回检 stage 3 (模型选择前提是否被结果推翻) + stage 4 (符号一致性) + **review_qis 列表 (若 verdict=pass_with_review)**
+6. 所有 `ves_eligibility=true` 的 Qi：`ves_status=verified` 且 `manifest_path` / `evidence_ref` / `verified_rmse` / `verified_mae` 齐全；任何 `no_verified` 不得进入 Stage 8 引用
 
 → 跳转 `stage_06_robustness.md`
 

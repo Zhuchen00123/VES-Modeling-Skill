@@ -72,10 +72,16 @@ Q1 卡片
 ├── 目标:
 │   - 最小化/最大化 <什么>
 ├── 问题类型: <model_catalog 第几类>
+├── VES 宿主验证:
+│   - ves_eligibility: true | false | unclear
+│   - ves_reason: <回归/预测→可交 VES 宿主验证；否则说明为何 out_of_ves_scope>
+│   - ves_data_contract: <public: train.csv+test_features.csv；host: hidden_test_labels.csv；行序/ID 契约，见 references/ves_regression.md>
 └── 难度估计: easy / medium / hard
 ```
 
 **关键**: 每张 Qi 卡片的“上游依赖”列必须明确写依赖哪些结果。只有题面、数学接口或业务机制支持时才建立依赖；“题目未禁止”不构成复用证据。没有合理依赖时写“无”，并保留理由。
+
+**回归/预测类 Qi 强制标记**: 凡涉及数值预测、回归拟合或“对未知样本给出预测值”的子问题，必须逐项填写 `ves_eligibility` / `ves_reason` / `ves_data_contract`（契约见 `references/ves_regression.md`），并在 Step 4 数据 schema 扫描时核对 `target` 列只在训练数据、测试特征与隐藏标签的行序/ID 对齐方式。无法满足契约时标记 `ves_eligibility=false` 或 `unclear` 并记录原因，不得在后续阶段伪装为 VES 已验证。
 
 ### Step 3: 关键变量统一编号 (30 min)
 
@@ -152,7 +158,21 @@ Qi: <与该子问题匹配的符号化目标>
 写入 `decision_log.stages.2`:
 ```json
 {
-  "decomposition": [...],
+  "decomposition": [
+    {
+      "qi": "Q1",
+      "summary": "...",
+      "problem_type": "...",
+      "ves_eligibility": true,
+      "ves_reason": "预测类子问题，可交 VES 宿主验证",
+      "ves_data_contract": {
+        "public": ["train.csv", "test_features.csv"],
+        "host": ["hidden_test_labels.csv"],
+        "row_order": "shared ID column 'id' | assume-row-order 显式确认",
+        "notes": ""
+      }
+    }
+  ],
   "key_variables": [...],
   "key_constraints": [...],
   "objective_per_subproblem": {"<Qi>": "..."},
@@ -190,6 +210,7 @@ Qi: <与该子问题匹配的符号化目标>
 2. 全局变量表覆盖后续模型实际所需项且无凑数项
 3. 数据 schema 扫描完成
 4. 每个 Qi 的依赖关系明确 (依赖 / 独立,均有理由)
-5. L1 rubric 全维 ≥7
+5. 每个回归/预测 Qi 的 `ves_eligibility` / `ves_reason` / `ves_data_contract` 已按 `references/ves_regression.md` 填写
+6. L1 rubric 全维 ≥7
 
 → 跳转 `stage_03_model_selection.md`
