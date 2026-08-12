@@ -72,6 +72,26 @@ Cross-check the final paper against `decision_log.json` and the saved artifacts:
 - every external claim has a verified source;
 - AI-generated citations have been opened and checked manually.
 
+## 3.5 VES verification gate (regression/prediction subproblems)
+
+When the paper contains any subproblem marked `ves_eligibility=true`:
+
+- every such subproblem must have `ves_status=verified` in the decision log,
+  with `manifest_path`, `evidence_ref`, `verified_rmse`, and `verified_mae`
+  present;
+- re-open the normalized manifest (`scripts/run_ves_regression.py` output) and
+  confirm the artifacts (`run_dir/summary.json`, `config.json`,
+  `best_solution.py`) and provenance hashes still exist and match the paper
+  references; a missing manifest, missing artifact, or hash mismatch is a
+  fail-closed violation;
+- verify the paper's regression numbers equal the manifest's verified values
+  and that no `no_verified` run or candidate self-report was cited;
+- only then set `decision_log.stages.9.compliance_checks.ves_verified = true`.
+
+Any unresolved VES violation sets `submission_ready=false` and blocks
+compilation/submission (compile fail-closed). Contract details live in
+`references/ves_regression.md`.
+
 ## 4. Review presentation
 
 - labels, units, legends, equations, and captions remain readable at final PDF size;
@@ -133,6 +153,8 @@ The `null` values above are schema placeholders only. Replace every one with an 
 
 - current official rules verified with no unresolved violation;
 - anti-pattern and consistency checks completed;
+- VES verification gate passed for every regression/prediction subproblem
+  (`ves_verified=true`) when any exists;
 - all high-severity panel findings resolved;
 - PDF compiled and visually inspected;
 - AI disclosure and supporting materials complete when required;

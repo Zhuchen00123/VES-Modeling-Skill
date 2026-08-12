@@ -1,13 +1,13 @@
 ---
-name: mathmodel-skill
-description: CUMCM 国赛、MCM/ICM 美赛与电工杯数学建模竞赛的端到端协作工作流。Use when a user explicitly works on one of these modeling contests or asks to run/review a modeling-competition paper from problem selection through modeling, solving, robustness, writing, compliance, and final submission review. Provides 10 stages, persistent decision state, competition-specific rules/templates, deterministic scoring helpers, numbered decisions, and Codex/Claude Code handoff. Do not trigger for generic model selection, ordinary data analysis, or non-competition paper review.
+name: ves-mathmodel-skill
+description: CUMCM 国赛、MCM/ICM 美赛与电工杯数学建模竞赛的端到端协作工作流。Use when a user explicitly works on one of these modeling contests or asks to run/review a modeling-competition paper from problem selection through modeling, solving, robustness, writing, compliance, and final submission review. 回归/预测类子问题优先交给 VES 宿主验证（ves_modeling.regression 薄 adapter，normalized Evidence 契约）；论文 LaTeX-first，只引用经宿主 verified 的指标。Provides 10 stages, persistent decision state, competition-specific rules/templates, deterministic scoring helpers, numbered decisions, and Codex/Claude Code handoff. Do not trigger for generic model selection, ordinary data analysis, or non-competition paper review.
 ---
 
-# mathmodel-skill — 数学建模三竞赛工作流 (v6.1)
+# ves-mathmodel-skill — 数学建模三竞赛工作流 (VES 宿主验证版)
 
 10 阶段把 72–96 小时的竞赛协作变成可恢复、可检查的流程。用户回答关键问题，agent 维护状态与脚本。每阶段产出经过 rubric 自评、定向精修与跨阶段一致性回检；Stage 8–9 先遵守当届官方规则，再做多视角终审。CUMCM 包含 91 份来源文档，其中 59 份进入文本统计；MCM/电工杯经验统计明确为 `n=0`，不提供合成分位。
 
-**v6.1 更新**: 加入竞赛规则基线与 AI 使用披露链路；三竞赛统一使用 marker 模板并对提交元数据 fail closed；修复状态路径错位、评分 verdict 持久化、题型权重合并和 YAML frontmatter 等问题；新增 preflight doctor 与自动化验证。
+**VES 集成**: 回归/预测类子问题（Stage 2–9）经 `scripts/run_ves_regression.py` 薄 adapter 提交 VES 宿主验证；只接受 `status=verified` 的 normalized 指标写入决策日志与论文，mock 仅限可信夹具本地运行，`llm` 生成必须走 Docker。详见 `references/ves_regression.md`。
 
 ---
 
@@ -15,24 +15,22 @@ description: CUMCM 国赛、MCM/ICM 美赛与电工杯数学建模竞赛的端�
 
 Codex 优先按 skill 目录发现本文件:
 
-- 用户级安装: `$HOME/.agents/skills/mathmodel-skill/`
-- 项目级安装: `<repo>/.agents/skills/mathmodel-skill/`
+- 用户级安装: `$HOME/.agents/skills/ves-mathmodel-skill/`
+- 项目级安装: `<repo>/.agents/skills/ves-mathmodel-skill/`
 - UI 元数据: `agents/openai.yaml`
-- 插件分发元数据: `.codex-plugin/plugin.json` + `skills/mathmodel-skill/SKILL.md` shim
-- 项目指导: `AGENTS.md` 仍可作为 repo / workspace 级 instructions, 但不是唯一入口
 
-当 skill 已安装后, 用户可直接说"开始建模"或显式说"使用 `$mathmodel-skill` 开始建模"。
+当 skill 已安装后, 用户可直接说"开始建模"或显式说"使用 `$ves-mathmodel-skill` 开始建模"。
 
 ---
 
 ## Harness 兼容 (Claude Code / Codex)
 
-本 skill v6.1 以 Codex Skills 为一等入口, 同时保持 harness-agnostic 设计:
+本 skill 以 Codex Skills 为一等入口, 同时保持 harness-agnostic 设计:
 
 | harness | 入口文件 | 用户交互工具 | 状态文件 |
 |---------|---------|-------------|---------|
 | Claude Code | `SKILL.md` (本文件) | `AskUserQuestion` 工具 | `<cwd>/state/decision_log.json` |
-| Codex CLI / Codex app | skill 目录中的 `SKILL.md` + 可选 `AGENTS.md` | markdown 编号列表 | 同上 (**互通**) |
+| Codex CLI / Codex app | skill 目录中的 `SKILL.md`（本 fork 自包含，不附带 `AGENTS.md`） | markdown 编号列表 | 同上 (**互通**) |
 
 跨 harness 互通: day 1 用 Codex 跑 stage 0-2, day 2 切回 Claude Code 接着 stage 3+, 状态完全保留。详见 `references/harness_compat.md`。
 
@@ -56,6 +54,7 @@ Codex 优先按 skill 目录发现本文件:
 | 类型 | 位置 | 例 |
 |------|------|-----|
 | skill 内通用 | skill 根目录的相对路径 | `references/stage_05_subproblem_loop.md`, `templates/shared/decision_log.json` |
+| **VES 回归契约** | `references/ves_regression.md` | Stage 5 起每个回归/预测子问题必读 |
 | **竞赛特化** | `competitions/<comp>/...` 按 decision_log.competition dispatch | `competitions/cumcm/winning_patterns.md`, `competitions/mcm/abstract_template.md` |
 | **LaTeX 模板** | `templates/latex/<comp>/main.tex` | `templates/latex/cumcm/main.tex`, `templates/latex/mcm/main.tex` |
 | 用户产物 | 用户工作目录的相对路径 | `<cwd>/state/`, `<cwd>/results/`, `<cwd>/figures/`, `<cwd>/paper_workspace/` |
@@ -63,6 +62,21 @@ Codex 优先按 skill 目录发现本文件:
 | 环境变量 | `MATHMODEL_STATE_DIR` (兼容 `CUMCM_STATE_DIR`) / `MATHMODEL_COMPETITION` 可覆盖 | scripts 用此变量 |
 
 约定: `<skill>/` = skill 安装目录, `<cwd>/` = 用户 cwd, `<comp>/` = 当前竞赛 (cumcm | mcm | diangong)。
+
+---
+
+## VES 宿主验证 (回归/预测子问题专用接缝)
+
+**边界**: Stage 5 回归/预测子问题 → `scripts/run_ves_regression.py` → `ves_modeling.regression` 公开 API（`run_regression_search` / `apply_regression_solution` / `capabilities`）→ normalized Evidence manifest（schema 1.1）→ `decision_log.stages.5.sub_problems.<Qi>` → Stage 8/9 引用。完整契约见 `references/ves_regression.md`。
+
+硬性规则:
+1. **薄 adapter**：只 import 公开模块 `ves_modeling.regression` 的 `run_regression_search`、`apply_regression_solution`、`capabilities` 与公开结果类型；不 import Verifier/Judge/SearchEngine/Runner 或任何 demo/私有实现。VES 持续迭代时仅需同步能力检测与字段白名单。
+2. **candidate 自评分禁止**：RMSE/MAE 只认宿主 verifier 产出（`RegressionSearchResult.best_rmse/best_mae`）；candidate 声称的 `claimed_rmse/score` 一律不读。
+3. **mock 与 llm 边界**：`generator=mock` 只用于可信夹具且仅限本地（tests/fixtures）；真实候选必须 `generator=llm` + Docker runner。两者结果同样必须 `status=verified` 才能作证据。
+4. **fail-closed**：`status != "verified"`（如 `no_verified`）时脚本照写 manifest 但 CLI 非零退出，不得当成功证据；缺文件、public 泄漏 hidden labels、特征不一致、行序/ID 无法保证时，在执行搜索前明确报错。
+5. **论文引用**：Stage 8 只引用 normalized manifest 中 `status=verified` 的指标（`ves_run_id/verified_rmse/verified_mae/evidence_ref/manifest_path`）；Stage 9 复审时必须核对 manifest/artifacts/hash 存在且引用一致。
+6. **scope 外问题**：非回归/预测（如优化、分类无宿主验证）标记 `out_of_ves_scope=true`，走常规本地建模与验证，不伪装成 VES 已验证。
+7. **当前能力边界**：上游已提供 `apply_regression_solution`；未知官方测试集上的"预测"状态恒为 `produced_unverified`，必须标注“已生成、未验证”，不得伪装为已验证证据。
 
 ---
 
@@ -148,11 +162,14 @@ Codex 优先按 skill 目录发现本文件:
 - stage 1-9: `references/rubrics.md` 对应章节 (L1 评分用)
 - **stage 1**: `competitions/<comp>/topic_specs.json` (题号 → task_type 映射)
 - stage 3, 5: `references/model_catalog.md` (跨竞赛通用)
+- **stage 5 (回归/预测子问题)**: `references/ves_regression.md` 必读, 按契约调用 `scripts/run_ves_regression.py`
 - **stage 5**: per-Qi 评分跑完后调 `scripts/score_artifact.py --mode aggregate_qi` 聚合
 - **stage 0 / 8 / 9**: `competitions/<comp>/current_rules.md` 存在时读取，并核对其中官方链接
 - **stage 8**: `competitions/<comp>/{winning_patterns, phrase_bank, abstract_template, paper_skeleton}.md`
+- **stage 8 (含回归子问题)**: 只引用 `references/ves_regression.md` 定义的 normalized verified 指标
 - **stage 8 经验锚点**: `competitions/<comp>/empirical.json` 只作评分前参考；CUMCM 为 59 份可提取样本的观察分位，MCM/电工杯为 `n=0` 占位且不得推断数值门槛
 - **stage 9**: 先做规则合规门，再用 `anti_patterns.md` 与 `rubric_overlay.json` 的 panel personas
+- **stage 9 (含回归子问题)**: 复核 VES manifest/artifacts/hash 与论文引用一致, `status=verified` 缺失即编译/提交 fail-closed
 - 触发反馈时: 对应 `references/feedback_layer*.md`
 - harness 适配差异 (Codex 用户必读): `references/harness_compat.md`
 
@@ -184,10 +201,11 @@ Codex 优先按 skill 目录发现本文件:
 - 开头: 读取 `<cwd>/state/decision_log.json`, 核对 current_stage 与上下文
 - 结尾: 更新 stage 节点 (核心决策 + 摒弃方案 + 评分), `current_stage += 1`
 
-`decision_log.json` v3.1 schema 关键字段 (与 `templates/shared/decision_log.json` 对齐):
+`decision_log.json` v3.2 schema 关键字段 (与 `templates/shared/decision_log.json` 对齐):
 - root: `competition`, `task_type`, `mode`, `current_stage`, `budget`, `events`, `compliance`
 - stage_5 扩展: `qi_count`, `qi_weights`, `qi_status`
 - scores 扩展: 含 `weighted_mean`, `review_qis`, `refine_qis` (stage 5 加权聚合用)
+- VES 扩展 (v3.2): Stage 2 每 Qi 的 `ves_eligibility/ves_reason/ves_data_contract`；Stage 3 的 `execution_backend/verifier_compatible/out_of_ves_scope`；Stage 5 每子问题的 `ves_run_id/ves_status/verified_rmse/verified_mae/evidence_ref/manifest_path`；Stage 8/9 的 VES 引用与编译门。字段定义见 `references/ves_regression.md`。
 
 L2 跨阶段回检 (stage 5/6/8 末尾) 读这个文件主动找冲突, 触发**定向回滚**: 不重做整阶段, 只针对冲突点。
 
@@ -223,7 +241,7 @@ L2 跨阶段回检 (stage 5/6/8 末尾) 读这个文件主动找冲突, 触发**
 - `competitions/diangong/`: 官网参赛规则与论文规范已于 2026-07-22 核对；经验模式是维护者启发，empirical 为 `n=0`
 - 通用模型清单 `references/model_catalog.md` 跨竞赛复用
 
-当前 `scripts/ingest_papers.py` 是维护期归档工具，不能直接重建三个竞赛包的 `empirical.json`。新增语料前先补来源 provenance、提取 QA 与分组样本量。
+上游的 `ingest_papers.py` / `download_cumcm_papers.py` / `requirements-maintenance.txt` 等维护期归档工具已从本 fork 移除，不随 skill 分发；需要重建 `empirical.json` 语料时请回到上游仓库操作。
 
 ---
 

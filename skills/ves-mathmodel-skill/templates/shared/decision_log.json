@@ -1,6 +1,6 @@
 {
-  "_schema_version": "3.1",
-  "_doc": "跨阶段决策日志。每个阶段开头读、结尾写。L2 回检读此文件寻找跨阶段冲突。schema 与 stage_NN.md 实际写入字段一一对齐。v3.1 加入规则核对、AI 使用台账与最终论文元数据。",
+  "_schema_version": "3.2",
+  "_doc": "跨阶段决策日志。每个阶段开头读、结尾写。L2 回检读此文件寻找跨阶段冲突。schema 与 stage_NN.md 实际写入字段一一对齐。v3.1 加入规则核对、AI 使用台账与最终论文元数据；v3.2 加入 VES 宿主验证字段（Stage 2 ves_eligibility/ves_data_contract、Stage 3 execution_backend/verifier_compatible/out_of_ves_scope、Stage 5 ves_run_id/ves_status/verified_rmse/verified_mae/evidence_ref/manifest_path、Stage 8/9 VES 引用与编译门），契约见 references/ves_regression.md。",
   "competition": "cumcm",
   "task_type": null,
   "_competition_doc": "enum: cumcm | mcm | diangong (默认 cumcm 兼容老用户). 由 stage 0 kickoff 第一问填入。score_artifact.py / stage 文件按此字段 dispatch competitions/<comp>/* 加载。",
@@ -75,6 +75,7 @@
     },
     "2": {
       "_label": "analysis",
+      "_ves_doc": "VES 扩展 (v3.2)：每个 decomposition 条目可选 ves_eligibility (true|false|unclear)、ves_reason、ves_data_contract。回归/预测类子问题按 references/ves_regression.md 的 public/host 文件与行序/ID 契约填写；非回归标记 out_of_ves_scope 理由。",
       "decomposition": [],
       "key_variables": [],
       "key_constraints": [],
@@ -84,6 +85,7 @@
     },
     "3": {
       "_label": "model_selection",
+      "_ves_doc": "VES 扩展 (v3.2)：selected_per_subproblem 每个条目可选 execution_backend (local|ves|both)、verifier_compatible (bool)、out_of_ves_scope (bool)。verifier_compatible=true 的回归/预测候选必须能在 VES 宿主验证；仅本地可验证或 VES 未覆盖的候选标记 out_of_ves_scope=true 并记录理由。",
       "candidate_models": [],
       "selected_per_subproblem": {},
       "rejection_log": [],
@@ -113,6 +115,13 @@
       "sub_problems": {
         "_template": {
           "model_name": "",
+          "ves_run_id": null,
+          "ves_status": null,
+          "verified_rmse": null,
+          "verified_mae": null,
+          "evidence_ref": null,
+          "manifest_path": null,
+          "_ves_doc": "VES 扩展 (v3.2)：回归/预测子问题经 scripts/run_ves_regression.py 后填写。ves_status 必须为 verified 才能写入 verified_rmse/verified_mae；evidence_ref 指向 normalized manifest 中 result 的引用（如 ves_run_id + provenance hash），manifest_path 指向 manifest 文件路径。no_verified 或缺失 manifest 不得作为论文证据。",
           "math_formulation_path": "",
           "code_path": "",
           "results_path": "",
@@ -156,7 +165,9 @@
       "compliance": {
         "rules_rechecked": false,
         "paper_profile": null,
-        "ai_ledger_complete": false
+        "ai_ledger_complete": false,
+        "ves_metrics_verified": false,
+        "_ves_doc": "VES 扩展 (v3.2)：含回归/预测子问题时，ves_metrics_verified 必须为 true（所有引用指标来自 status=verified 的 normalized manifest，且 evidence_ref/manifest_path 存在）；否则保持 false。"
       }
     },
     "9": {
@@ -183,7 +194,9 @@
         "anonymity_passed": false,
         "page_limit_passed": false,
         "ai_disclosure_passed": false,
-        "supporting_materials_passed": false
+        "supporting_materials_passed": false,
+        "ves_verified": false,
+        "_ves_doc": "VES 扩展 (v3.2)：含回归/预测子问题时，ves_verified 必须为 true（manifest/artifacts/hash 存在、论文引用与 manifest 一致、status=verified 指标齐全），否则提交 fail-closed。"
       },
       "final_pdf_path": null,
       "submission_ready": false
