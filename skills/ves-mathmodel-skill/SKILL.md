@@ -55,8 +55,10 @@ Codex 优先按 skill 目录发现本文件:
 |------|------|-----|
 | skill 内通用 | skill 根目录的相对路径 | `references/stage_05_subproblem_loop.md`, `templates/shared/decision_log.json` |
 | **VES 回归契约** | `references/ves_regression.md` | Stage 5 起每个回归/预测子问题必读 |
+| **VES 多 slice 契约** | `references/ves_adaptation.md` | 回归以外 slice（分类/时序/优化/ODE 等）走 `scripts/run_ves_problem.py` |
 | **竞赛特化** | `competitions/<comp>/...` 按 decision_log.competition dispatch | `competitions/cumcm/winning_patterns.md`, `competitions/mcm/abstract_template.md` |
 | **LaTeX 模板** | `templates/latex/<comp>/main.tex` | `templates/latex/cumcm/main.tex`, `templates/latex/mcm/main.tex` |
+| **图表工具 (vendored)** | `tools/figure/`（自包含子 skill） | `tools/figure/SKILL.md`, `tools/figure/scripts/setup_style.py` |
 | 用户产物 | 用户工作目录的相对路径 | `<cwd>/state/`, `<cwd>/results/`, `<cwd>/figures/`, `<cwd>/paper_workspace/` |
 | state 持久化 | `<cwd>/state/decision_log.json` | 各 stage 必读必写 |
 | 环境变量 | `MATHMODEL_STATE_DIR` (兼容 `CUMCM_STATE_DIR`) / `MATHMODEL_COMPETITION` 可覆盖 | scripts 用此变量 |
@@ -65,18 +67,38 @@ Codex 优先按 skill 目录发现本文件:
 
 ---
 
-## VES 宿主验证 (回归/预测子问题专用接缝)
+## VES 宿主验证 (通用多 slice 接缝)
 
-**边界**: Stage 5 回归/预测子问题 → `scripts/run_ves_regression.py` → `ves_modeling.regression` 公开 API（`run_regression_search` / `apply_regression_solution` / `capabilities`）→ normalized Evidence manifest（schema 1.1）→ `decision_log.stages.5.sub_problems.<Qi>` → Stage 8/9 引用。完整契约见 `references/ves_regression.md`。
+**边界**: Stage 2 判定 `ves_eligibility` 与 `ves_slice`；Stage 5 经薄 adapter 提交 VES 宿主验证：
+
+- 回归/预测子问题 → `scripts/run_ves_regression.py`（`ves_modeling.regression` 专项，最成熟，见 `references/ves_regression.md`）；
+- 其他 slice（分类/时序/优化/ODE/聚类/异常/图论/仿真等 25 类）→ `scripts/run_ves_problem.py --slice <name>`（通用调度器，见 `references/ves_adaptation.md`）。
+
+统一输出 normalized Evidence manifest（schema 1.1）→ `decision_log.stages.5.sub_problems.<Qi>`（`ves_slice/ves_status/ves_metrics/evidence_ref/manifest_path`）→ Stage 8/9 引用。
 
 硬性规则:
-1. **薄 adapter**：只 import 公开模块 `ves_modeling.regression` 的 `run_regression_search`、`apply_regression_solution`、`capabilities` 与公开结果类型；不 import Verifier/Judge/SearchEngine/Runner 或任何 demo/私有实现。VES 持续迭代时仅需同步能力检测与字段白名单。
-2. **candidate 自评分禁止**：RMSE/MAE 只认宿主 verifier 产出（`RegressionSearchResult.best_rmse/best_mae`）；candidate 声称的 `claimed_rmse/score` 一律不读。
+1. **薄 adapter**：只 import 公开模块符号（`run_<slice>_search`、`apply_<slice>_solution`、`capabilities`、公开结果类型）；不 import Verifier/Judge/SearchEngine/Runner 或任何 demo/私有实现。VES 持续迭代时仅需同步能力检测与字段白名单。
+2. **candidate 自评分禁止**：指标只认宿主 verifier 产出（`best_*` / `to_summary()`）；candidate 声称的 `claimed_*`/score 一律不读。
 3. **mock 与 llm 边界**：`generator=mock` 只用于可信夹具且仅限本地（tests/fixtures）；真实候选必须 `generator=llm` + Docker runner。两者结果同样必须 `status=verified` 才能作证据。
-4. **fail-closed**：`status != "verified"`（如 `no_verified`）时脚本照写 manifest 但 CLI 非零退出，不得当成功证据；缺文件、public 泄漏 hidden labels、特征不一致、行序/ID 无法保证时，在执行搜索前明确报错。
-5. **论文引用**：Stage 8 只引用 normalized manifest 中 `status=verified` 的指标（`ves_run_id/verified_rmse/verified_mae/evidence_ref/manifest_path`）；Stage 9 复审时必须核对 manifest/artifacts/hash 存在且引用一致。
-6. **scope 外问题**：非回归/预测（如优化、分类无宿主验证）标记 `out_of_ves_scope=true`，走常规本地建模与验证，不伪装成 VES 已验证。
-7. **当前能力边界**：上游已提供 `apply_regression_solution`；未知官方测试集上的"预测"状态恒为 `produced_unverified`，必须标注“已生成、未验证”，不得伪装为已验证证据。
+4. **fail-closed**：`status != "verified"`（如 `no_verified`）时脚本照写 manifest 但 CLI 非零退出，不得当成功证据；缺文件、public 泄漏 hidden labels、host 目录缺失或嵌套时，在执行搜索前明确报错。
+5. **论文引用**：Stage 8 只引用 normalized manifest 中 `status=verified` 的指标（`ves_run_id/ves_slice/ves_metrics/evidence_ref/manifest_path`）；Stage 9 复审时必须核对 manifest/artifacts/hash 存在且引用一致。
+6. **scope 外问题**：VES 目录未覆盖或无法满足数据契约的 Qi 标记 `out_of_ves_scope=true`，走常规本地建模与验证，不伪装成 VES 已验证。
+7. **当前能力边界**：上游每个 slice 都提供 `apply_*_solution`；未知真值输入上的结果状态恒为 `produced_unverified`，必须标注“已生成、未验证”，不得伪装为已验证证据。
+
+---
+
+## 出版级图表工具（vendored，直接复用）
+
+绘图能力直接复用 `tools/figure/`（源自 XiaoMaColtAI/math-modeling-skill 的科研可视化子 skill，脚本自包含、不改写）：
+
+- `setup_style.py`：nature/science/ieee/general 期刊预设、中文字体自动检测、负号修正；
+- `export_figure.py` / `layout_tools.py`：SVG/PDF/PNG 导出与子图布局；
+- `check_figure.py`：格式/DPI/字体嵌入/JPEG 审计；
+- `validate_figure.py`：绘图源码静态预检（不依赖运行环境）；
+- `visual_qa.py` / `profile_data.py`：程序化视觉 QA 与数据剖析；
+- `references/`：图表选型、设计理论、期刊规范与投稿检查清单。
+
+使用前先读 `tools/figure/SKILL.md`；本 Skill 不维护其内部实现。后续 VES 绘图 vertical slice 成熟后再整体替换（见 `docs/VES_ADAPTATION_ROADMAP.md` 与 VES-Modeling Issue #1）。
 
 ---
 

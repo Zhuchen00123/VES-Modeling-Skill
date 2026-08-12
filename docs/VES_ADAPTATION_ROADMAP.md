@@ -15,12 +15,12 @@
 剩余 Skill 侧工作：
 
 - [ ] 宿主运行环境打包（可复现的宿主依赖/镜像，供 LLM client + 公共 API + runner 控制使用）；
-- [ ] 其余 24 类 slice 的薄适配器与 Evidence 门禁（见下节）；
+- [x] 其余 24 类 slice 的通用薄适配器（`scripts/run_ves_problem.py`，25 类目录 + 能力检测 + 统一 manifest，已实测 classification/optimization mock 闭环）；逐 slice 深度数据契约与真实案例验证仍待推进（见下节）；
 - [ ] 可视化 vertical slice（见 Issue #1 与“图形与可视化”节）。
 
 ## Skill 侧切片接入顺序（VES 上游已交付 25 类稳定 API）
 
-VES-Modeling 上游已提供 25 类 `run_*_search` / `apply_*_solution` 稳定 API。本 Skill 当前只接入回归；其余切片按真实竞赛案例驱动逐个接入，每个切片都要完成：薄适配器、数据契约与能力检测、normalized Evidence 门禁、Stage 8/9 引用规则、测试夹具与失败语义。不要先做只有抽象类、没有真实 verifier 的通用注册系统。
+VES-Modeling 上游已提供 25 类 `run_*_search` / `apply_*_solution` 稳定 API。本 Skill 已通过 `scripts/run_ves_problem.py` 提供通用薄适配器（目录/能力检测/统一 manifest/apply），并实测 classification 与 optimization mock 闭环。后续按真实竞赛案例驱动逐个切片深化：数据契约与 fixture 测试、Stage 8/9 引用规则验证、失败语义。不要先做只有抽象类、没有真实 verifier 的通用注册系统。
 
 | 优先级 | 类别 | 最小可验证结果 |
 |---:|---|---|
@@ -39,12 +39,12 @@ VES-Modeling 上游已提供 25 类 `run_*_search` / `apply_*_solution` 稳定 A
 
 ## 图形与可视化（待办，不阻塞当前发布）
 
-当前 Skill 提供基础 Matplotlib 图表模板与 300 DPI 导出，但缺少确定性的图表规划、VES Evidence 入图门禁与 LaTeX 图路径契约。可视化增强按“可验证绘图方案”思路逐步建设，已登记到 VES-Modeling 仓库 [Issue #1](https://github.com/Zhuchen00123/VES-Modeling/issues/1)，后续随 VES 公共契约演进：
+当前 Skill 已直接复用成熟绘图实现（`tools/figure/`：期刊预设样式、矢量导出、DPI/字体审计、源码预检与视觉 QA）。后续按“可验证绘图方案”思路升级到 VES 宿主验证，已登记到 VES-Modeling 仓库 [Issue #1](https://github.com/Zhuchen00123/VES-Modeling/issues/1)，随 VES 公共契约演进：
 
 1. `figure_manifest` + `figure_check`：每张正式图必须绑定 claim、数据源、reader task、发布标记与校验和；
 2. VES 数据入图 provenance：`verified` 才可进正文，`no_verified`/`produced_unverified` 仅诊断并强制标注；
 3. LaTeX 图路径契约：md 图片路径与输出目录结构校验，防止编译断裂或漏图；
-4. 统一视觉规范：固定 palette、字体、矢量导出与色觉友好编码；
+4. 在现有 vendored 工具之上统一视觉规范（固定 palette、字体、色觉友好编码）；
 5. 复杂图（多面板、Pareto、敏感性、不确定性）再逐步交给 VES 宿主验证并确定性渲染。
 
 图表数量不是质量目标；优先可读、可复现、与结论一致的基础图。

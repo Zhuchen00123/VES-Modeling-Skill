@@ -61,9 +61,9 @@ Q3: "随机需求下的稳健决策" → 鲁棒优化 / 随机规划 / 蒙特卡
 Qi 候选 <ID>: <模型与模型族>
   - 适配证据: <对应目标/约束/数据性质>
   - 实现路径: <库/求解器/自实现>
-  - execution_backend: local | ves | both   (回归/预测候选见 references/ves_regression.md)
+  - execution_backend: local | ves | both   (多 slice 见 references/ves_adaptation.md；回归专项见 references/ves_regression.md)
   - verifier_compatible: true | false       (能否产出宿主可验证的 predictions.json 契约)
-  - out_of_ves_scope: true | false          (非回归/预测或 VES 未覆盖时置 true 并说明)
+  - out_of_ves_scope: true | false          (VES 目录未覆盖或契约不满足时置 true 并说明)
   - 可验证优势: <用什么基线或诊断验证>
   - 风险: <复杂度、假设或数据风险>
   - 结论: retain / reject；<证据>
@@ -71,7 +71,7 @@ Qi 候选 <ID>: <模型与模型族>
 
 **反模式 C3 检查**: 若候选只是同一方法换名字，合并重复项；若跨族方案不能解决同一任务，不得为了“多样性”加入。多样性是发现反事实的手段，不是数量门槛。
 
-**回归/预测候选强制**: 标为 `verifier_compatible=true` 的候选必须满足 VES 数据/结果契约（`train.csv`+`test_features.csv` 公开、`hidden_test_labels.csv` 宿主、行序/ID 对齐，见 `references/ves_regression.md`），并把 `execution_backend` 设为 `ves` 或 `both`。若只能在本地验证（无宿主契约），必须 `out_of_ves_scope=true`，不得声称 VES 已验证。
+**VES 可验证候选强制**: 标为 `verifier_compatible=true` 的候选必须满足对应 slice 的 VES 数据/结果契约（通用契约见 `references/ves_adaptation.md`；回归专项见 `references/ves_regression.md`），并把 `execution_backend` 设为 `ves` 或 `both`。若只能在本地验证（无宿主契约），必须 `out_of_ves_scope=true`，不得声称 VES 已验证。
 
 ### Step 3: 选型决策矩阵 (30 min)
 
@@ -196,7 +196,7 @@ championship 额外: red_team 覆盖所有能改变结论的实质攻击，每�
 2. 每 Qi 的合理替代已评估；若无替代，检索范围与理由已记录
 3. toy demo 通过
 4. (championship) 所有实质 red-team 攻击均有证据回应或明确的未解决风险
-5. 回归/预测 Qi 的 execution_backend / verifier_compatible / out_of_ves_scope 已按 `references/ves_regression.md` 填写
+5. VES 可验证 Qi 的 execution_backend / verifier_compatible / out_of_ves_scope 已按 `references/ves_adaptation.md`（回归专项 `references/ves_regression.md`）填写
 6. L1 全维 ≥7
 
 → 跳转 `stage_04_foundation.md`
