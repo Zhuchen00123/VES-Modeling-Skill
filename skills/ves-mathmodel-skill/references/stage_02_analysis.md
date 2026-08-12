@@ -74,14 +74,15 @@ Q1 卡片
 ├── 问题类型: <model_catalog 第几类>
 ├── VES 宿主验证:
 │   - ves_eligibility: true | false | unclear
-│   - ves_reason: <回归/预测→可交 VES 宿主验证；否则说明为何 out_of_ves_scope>
-│   - ves_data_contract: <public: train.csv+test_features.csv；host: hidden_test_labels.csv；行序/ID 契约，见 references/ves_regression.md>
+│   - ves_slice: regression | forecasting | classification | optimization | ode | ... (25 类, 见 references/ves_adaptation.md)
+│   - ves_reason: <该 slice 可交 VES 宿主验证；否则说明为何 out_of_ves_scope>
+│   - ves_data_contract: <public/host 文件与行序/ID 契约；回归见 references/ves_regression.md，其他见 references/ves_adaptation.md>
 └── 难度估计: easy / medium / hard
 ```
 
 **关键**: 每张 Qi 卡片的“上游依赖”列必须明确写依赖哪些结果。只有题面、数学接口或业务机制支持时才建立依赖；“题目未禁止”不构成复用证据。没有合理依赖时写“无”，并保留理由。
 
-**回归/预测类 Qi 强制标记**: 凡涉及数值预测、回归拟合或“对未知样本给出预测值”的子问题，必须逐项填写 `ves_eligibility` / `ves_reason` / `ves_data_contract`（契约见 `references/ves_regression.md`），并在 Step 4 数据 schema 扫描时核对 `target` 列只在训练数据、测试特征与隐藏标签的行序/ID 对齐方式。无法满足契约时标记 `ves_eligibility=false` 或 `unclear` 并记录原因，不得在后续阶段伪装为 VES 已验证。
+**VES 可验证 Qi 强制标记**: 凡能映射到 VES 25 类 slice 之一（回归、时序预测、分类、优化、ODE、聚类、异常、图论、仿真等）且可满足数据契约的子问题，必须逐项填写 `ves_eligibility` / `ves_slice` / `ves_reason` / `ves_data_contract`（通用契约见 `references/ves_adaptation.md`；回归专项见 `references/ves_regression.md`）。无法满足契约时标记 `ves_eligibility=false` 或 `unclear` 并记录原因，不得在后续阶段伪装为 VES 已验证。
 
 ### Step 3: 关键变量统一编号 (30 min)
 
@@ -164,6 +165,7 @@ Qi: <与该子问题匹配的符号化目标>
       "summary": "...",
       "problem_type": "...",
       "ves_eligibility": true,
+      "ves_slice": "regression",
       "ves_reason": "预测类子问题，可交 VES 宿主验证",
       "ves_data_contract": {
         "public": ["train.csv", "test_features.csv"],
@@ -210,7 +212,7 @@ Qi: <与该子问题匹配的符号化目标>
 2. 全局变量表覆盖后续模型实际所需项且无凑数项
 3. 数据 schema 扫描完成
 4. 每个 Qi 的依赖关系明确 (依赖 / 独立,均有理由)
-5. 每个回归/预测 Qi 的 `ves_eligibility` / `ves_reason` / `ves_data_contract` 已按 `references/ves_regression.md` 填写
+5. 每个 VES 可验证 Qi 的 `ves_eligibility` / `ves_slice` / `ves_reason` / `ves_data_contract` 已按 `references/ves_adaptation.md`（回归专项 `references/ves_regression.md`）填写
 6. L1 rubric 全维 ≥7
 
 → 跳转 `stage_03_model_selection.md`

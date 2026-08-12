@@ -183,12 +183,12 @@ else:
 
 不通过任一项 → 回 A 检查模型。
 
-### C2. VES 宿主验证 (回归/预测子问题强制)
+### C2. VES 宿主验证 (VES 可验证子问题强制)
 
-凡 Stage 2 标记 `ves_eligibility=true` 的 Qi，必须用宿主验证替换/补充自评，**不得直接相信 candidate 自评分**。契约全文见 `references/ves_regression.md`。
+凡 Stage 2 标记 `ves_eligibility=true` 的 Qi，必须用宿主验证替换/补充自评，**不得直接相信 candidate 自评分**。通用契约全文见 `references/ves_adaptation.md`；回归专项见 `references/ves_regression.md`。
 
 ```bash
-# 从用户项目目录调用 skill 内薄 adapter（只调公开模块 ves_modeling.regression）
+# 回归/预测子问题：skill 内专项薄 adapter（只调公开模块 ves_modeling.regression）
 python <skill>/scripts/run_ves_regression.py \
   --public-dir <项目>/data/public \
   --host-dir <项目>/data/host \
@@ -197,15 +197,25 @@ python <skill>/scripts/run_ves_regression.py \
   --dataset-name <题号+Qi> \
   --generator mock          # 仅可信夹具本地；真实候选用 llm + Docker
   # 行序/ID 无法保证时显式: --assume-row-order
+
+# 其他 slice（分类/时序/优化/ODE 等）：通用调度器，契约见 references/ves_adaptation.md
+python <skill>/scripts/run_ves_problem.py \
+  --slice classification \
+  --public-dir <项目>/data/public \
+  --host-dir <项目>/data/host \
+  --workspace <项目>/ves_runs \
+  --generator mock \
+  --output <项目>/state/ves_problem_manifest.json
+# 无 host 的 slice（optimization/graph 等）省略 --host-dir；slice 特有参数用 --set key=value
 ```
 
 规则:
-- `status=verified` 才可写入 `verified_rmse/verified_mae` 并最终进论文；`no_verified`（CLI 退出码 3）不是成功证据。
-- 输出是 normalized manifest（schema 1.1，仅稳定字段，原子写）；`best_evidence/records/best_code` 内容不序列化，只留路径与 sha256；数据契约（`target_column/id_column/row_order/split_metadata`）与 `capabilities()`/`API_SCHEMA_VERSION` 一并记录。
-- 未知官方测试集预测使用 `--apply`（`apply_regression_solution`）：状态恒为 `produced_unverified`，只记录预测文件、哈希与 runner 信息，绝不写 RMSE/MAE。
+- `status=verified` 才可写入 `ves_metrics`（回归另存 `verified_rmse/verified_mae`）并最终进论文；`no_verified`（CLI 退出码 3）不是成功证据。
+- 输出是 normalized manifest（schema 1.1，仅稳定字段，原子写）；`best_evidence/records/best_code` 内容不序列化，只留路径与 sha256；数据契约、slice 特有参数与 `capabilities()`/`API_SCHEMA_VERSION` 一并记录。
+- 未知真值输入使用 `--apply`（`apply_<slice>_solution`）：状态恒为 `produced_unverified`，只记录预测文件、哈希与 runner 信息，绝不写任何质量指标。
 - `generator=mock` 仅限可信夹具本地；真实候选必须 `generator=llm` + Docker。
 - 前置校验 fail-closed：public 泄漏 `hidden_test_labels.csv`、特征不一致、行序/ID 无法保证 → 报错停止。
-- 非回归/预测 Qi（`out_of_ves_scope=true`）跳过本节，走常规本地验证。
+- 未映射到 VES slice 或契约不满足的 Qi（`out_of_ves_scope=true`）跳过本节，走常规本地验证。
 
 ### D. 子灵敏度 (按需)
 
@@ -256,7 +266,9 @@ plt.savefig("figures/Q1_sensitivity.png", dpi=300)
 {
   "model_name": "...",
   "ves_run_id": "<run_id 或 null>",
+  "ves_slice": "regression | forecasting | classification | ...",
   "ves_status": "verified | no_verified | null",
+  "ves_metrics": {"rmse": 0.5, "mae": 0.4} | null,
   "verified_rmse": null,
   "verified_mae": null,
   "evidence_ref": "<ves_run_id + provenance hash 引用>",
@@ -442,7 +454,7 @@ python <skill>/scripts/score_artifact.py \
 3. 所有有依据的依赖链已实现并验证；不存在合理依赖时已有明确记录
 4. (championship) red-team 一次,针对最弱的 Qi (优先 review_qis)
 5. 触发 L2: 跨阶段回检 stage 3 (模型选择前提是否被结果推翻) + stage 4 (符号一致性) + **review_qis 列表 (若 verdict=pass_with_review)**
-6. 所有 `ves_eligibility=true` 的 Qi：`ves_status=verified` 且 `manifest_path` / `evidence_ref` / `verified_rmse` / `verified_mae` 齐全；任何 `no_verified` 不得进入 Stage 8 引用
+6. 所有 `ves_eligibility=true` 的 Qi：`ves_status=verified` 且 `manifest_path` / `evidence_ref` / `ves_slice` / `ves_metrics` 齐全（回归保留 `verified_rmse/verified_mae`）；任何 `no_verified` 不得进入 Stage 8 引用
 
 → 跳转 `stage_06_robustness.md`
 
