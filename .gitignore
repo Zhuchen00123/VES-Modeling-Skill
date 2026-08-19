@@ -15,6 +15,7 @@ state/
 results/
 figures/
 paper_workspace/
+paper_output/
 
 # Editor / OS
 .DS_Store
