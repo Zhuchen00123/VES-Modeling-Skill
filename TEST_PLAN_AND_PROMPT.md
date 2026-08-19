@@ -35,8 +35,9 @@
 | **Docker 容器环境** | `ves-modeling-runner:0.1` | Docker Desktop Engine 已启动，用于隔离执行不可信代码与宿主验证 |
 | **VES 计算引擎** | `F:\codexprojects\VES-Modeling` | 包含 25 个 Vertical Slice（forecasting, optimization, multiobjective 等） |
 | **VES Core 核心** | `F:\codexprojects\aide_change` | 提供可验证搜索、六态 AttemptStatus 与判定管线 |
-| **VES 回归适配器** | `F:\codexprojects\VES-Modeling-Skill\skills\ves-mathmodel-skill\scripts\run_ves_regression.py` | 回归/预测专项薄适配器 |
-| **VES 多切片适配器** | `F:\codexprojects\VES-Modeling-Skill\skills\ves-mathmodel-skill\scripts\run_ves_problem.py` | 25 类通用切片适配器 |
+| **VES 子问题注册脚手架** | `F:\codexprojects\VES-Modeling-Skill\skills\ves-mathmodel-skill\scripts\ves_scaffold.py` | Stage 2/3 一键注册切片、创建数据目录并生成执行指令 |
+| **VES 回归/通用适配器** | `F:\codexprojects\VES-Modeling-Skill\skills\ves-mathmodel-skill\scripts\run_ves_problem.py` | 25 类通用切片可验证搜索与调度器 |
+| **VES 实验报告生成器** | `F:\codexprojects\VES-Modeling-Skill\skills\ves-mathmodel-skill\scripts\render_ves_report.py` | 自动生成实验报告 Markdown/LaTeX 并同步至 decision_log |
 | **论文渲染脚本** | `F:\codexprojects\VES-Modeling-Skill\skills\ves-mathmodel-skill\scripts\render_paper.py` | 论文分节组装、占位符检查、VES 门禁与三编 XeLaTeX |
 | **图表工具** | `F:\codexprojects\VES-Modeling-Skill\skills\ves-mathmodel-skill\tools\figure\` | 出版级图表规范与可视化导出脚本 |
 
@@ -68,34 +69,40 @@
 
 ---
 
-## 6. 题目四大核心问题与 VES 对接指南
+## 6. 题目四大核心问题与 VES 对接极简操作流
 
-### 问题 1：物料筛选与周需求预测（VES Forecasting 切片）
-- **物料筛选**：构建涵盖频数、数量、变异系数 $CV$、单价、销售额的多准则综合评价（如 ABC 分类 + 熵权 TOPSIS），筛选 6 种代表性物料。
-- **VES 预测对接**：将 1~100 周历史数据划分为 `data/q1_public`（train/test_features）与 `data/q1_host`（hidden_test_labels），调用：
-  ```bash
-  python skills/ves-mathmodel-skill/scripts/run_ves_problem.py \
-    --slice forecasting \
-    --public-dir data/q1_public \
-    --host-dir data/q1_host \
-    --workspace ves_runs/q1_forecasting \
-    --output state/q1_forecast_manifest.json
-  ```
-  由宿主 Verifier 独立评估 ARIMA、Croston、LightGBM、Prophet 等模型，获取真实 `verified_wape` 与 `verified_rmse`。
+### 步骤 1：Stage 2/3 自动注册子问题到对应切片
+```bash
+# 注册 Q1 周预测到 forecasting 切片并创建数据目录脚手架
+python skills/ves-mathmodel-skill/scripts/ves_scaffold.py \
+  --register --qi Q1 --slice forecasting --description "重点物料周需求量多步预测" --create-dirs
 
-### 问题 2：提前期 $L=1$ 的滚动排产（VES Optimization 切片）
-- **约束与排产策略**：动态安全库存与 Base-Stock 策略，周初决策仅用历史数据（无未来穿越），初值满足第 100 周条件，要求 101~177 周平均服务水平 $\ge 85\%$。
-- **VES 优化对接**：安全库存系数与排产触发阈值通过 `run_ves_problem.py --slice optimization` 进行求解与约束检验，Verifier 独立判定服务水平硬约束。
-- **输出要求**：计算出代表性物料 101~110 周明细（表 1）与 6 种物料 101~177 周综合汇总（表 2），并生成支撑材料 Excel。
+# 注册 Q2 生产排产到 optimization 切片
+python skills/ves-mathmodel-skill/scripts/ves_scaffold.py \
+  --register --qi Q2 --slice optimization --description "服务水平>=85%滚动排产优化" --create-dirs
+```
 
-### 问题 3：资金占用与服务水平 Pareto 权衡优化（VES Multiobjective 切片）
-- **成本与多目标模型**：引入单价差异对应的资金占用持有成本率 $h$ 与缺货惩罚损失，建立多目标 Pareto 前沿搜索。
-- **VES 多目标对接**：调用 `run_ves_problem.py --slice multiobjective` 获取非劣解集，并在 $\text{服务水平} \ge 85\%$ 条件下选取最优均衡点，重算表 1 与表 2。
+### 步骤 2：Stage 5 运行 VES 进行搜索与宿主独立验证
+```bash
+# 执行 Q1 周预测可验证搜索
+python skills/ves-mathmodel-skill/scripts/run_ves_problem.py \
+  --slice forecasting \
+  --public-dir data/q1_public \
+  --host-dir data/q1_host \
+  --workspace ves_runs/q1_forecasting \
+  --output state/q1_manifest.json
+```
 
-### 问题 4：提前期 $L=k \ge 2$ 的通用在途库存推广
-- **管道状态转移方程**：建立 $k$ 步时滞的在途库存状态转移与累积需求补偿控制律：
-  $$I_{t} = \max(0, I_{t-1} + P_{t-k} - D_t), \quad B_{t} = \max(0, D_t - I_{t-1} - P_{t-k})$$
-- **求解与推广**：完成 $L=2$ 时的表 1、表 2 求解，并在 $k \in \{2, 3, 4, 5\}$ 下完成通用排产算法推广与敏感性分析。
+### 步骤 3：Stage 5 生成规范实验报告并同步状态
+```bash
+# 一键生成 Markdown 实验报告并同步 verified 指标至 decision_log
+python skills/ves-mathmodel-skill/scripts/render_ves_report.py \
+  --manifest state/q1_manifest.json --qi Q1
+```
+
+### 步骤 4：Stage 8/9 论文引用与编译
+- 论文正文直接引用 `results/Q1_ves_report.md` 中的指标与表格。
+- 调用 `python skills/ves-mathmodel-skill/scripts/render_paper.py --competition cumcm --workspace paper_workspace/` 完成 XeLaTeX 三编生成最终 PDF。
 
 ---
 
@@ -111,10 +118,11 @@
 【执行要求】
 1. 竞赛类型：CUMCM（全国大学生数学建模竞赛）。
 2. 状态维护：自动在 `<cwd>/state/decision_log.json` 中完整记录 Stage 0 到 Stage 9 的决策与指标。
-3. 严格遵循 VES 可验证计算（严禁偷懒与自报数据）：
-   - Q1 的周需求预测必须调用 `scripts/run_ves_problem.py --slice forecasting`（或 `run_ves_regression.py`）进行真实训练与宿主验证，生成 `manifest.json`；
-   - Q2/Q3 的参数搜索与排产优化必须对接 VES `optimization` / `multiobjective` 切片验证；
-   - 严禁随意声明 `out_of_ves_scope`；论文中的预测精度与优化指标必须严格绑定 manifest 证据。
+3. 严格遵循 VES 可验证计算（使用脚手架与实验报告工具）：
+   - 在 Stage 2/3 使用 `scripts/ves_scaffold.py` 注册子问题到对应切片（Q1 绑定 `forecasting`，Q2/Q3 绑定 `optimization`/`multiobjective`）；
+   - 在 Stage 5 运行 `scripts/run_ves_problem.py` 完成搜索并由 Verifier 独立评定指标；
+   - 运行 `scripts/render_ves_report.py` 生成规范实验报告（`results/<Qi>_ves_report.md`）并自动同步回 `decision_log`；
+   - 严禁随意声明 `out_of_ves_scope` 或自报未验证数据，论文指标必须严格绑定真实生成的 verified manifest。
 4. 计算与表格产出：
    - 基于附件 22453 条订单真实计算，产出正文表 1（101~110 周明细）与正文表 2（101~177 周全期汇总），并导出 `支撑材料.xlsx`。
 5. 图表规范：

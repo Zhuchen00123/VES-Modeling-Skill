@@ -84,6 +84,11 @@ Q1 卡片
 
 **VES 可验证 Qi 强制标记**: 凡属于 VES 25 类切片范畴（回归、时序预测、分类、单/多目标优化、ODE、聚类、排队论、博弈论、图论、蒙特卡洛仿真等）的计算、预测或优化任务，**必须强制标记 `ves_eligibility=true` 并指定 `ves_slice`**。严禁将可形式化求解的优化、排产、预测问题借口复杂性或因果状态机随意打上 `out_of_ves_scope`；只有纯定性理论综述或无数据/无仿真的纯符号论述才允许置 `false`。通用契约见 `references/ves_adaptation.md`；回归专项见 `references/ves_regression.md`。
 
+**注册脚手架工具**: 建议直接使用脚手架脚本一键注册子问题并自动创建数据契约目录：
+```bash
+python <skill>/scripts/ves_scaffold.py --register --qi <Qi> --slice <slice_name> --create-dirs
+```
+
 ### Step 3: 关键变量统一编号 (30 min)
 
 跨子问题统一符号 (anti_pattern B4: 符号重复定义):

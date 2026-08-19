@@ -1,0 +1,107 @@
+% SPDX-License-Identifier: MIT
+% Copyright (c) 2026 handsomeZR-netizen
+%
+% Original CUMCM 2026 electronic-paper assembly template for mathmodel-skill.
+% This is a rules-aligned repository template, not an official contest template.
+% It intentionally omits the commitment form, numbering page, and identity data.
+
+\documentclass[UTF8,12pt,a4paper,fontset=fandol]{ctexart}
+
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{multirow}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{cite}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{enumitem}
+
+\hypersetup{
+  unicode=true,
+  hidelinks,
+  pdfauthor={},
+  pdftitle={},
+  pdfsubject={},
+  pdfkeywords={}
+}
+\urlstyle{same}
+
+\setlength{\parindent}{2em}
+\setlength{\parskip}{0pt}
+\linespread{1.25}
+\captionsetup{font=small,labelfont=bf}
+\lstset{
+  basicstyle=\small\ttfamily,
+  breaklines=true,
+  frame=single,
+  numbers=left,
+  numberstyle=\tiny,
+  showstringspaces=false,
+  columns=fullflexible,
+  keepspaces=true
+}
+
+% Pandoc may emit \tightlist in a LaTeX fragment.
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+
+% These counters enforce the electronic-paper structure during compilation.
+% The abstract occupies page 1. The body begins on page 2 and is limited to
+% 30 pages; references and the optional no-AI declaration count as body pages,
+% while the appendix does not.
+\newcounter{mathmodelbodystartpage}
+\newcounter{mathmodelbodypages}
+
+\begin{document}
+
+% MATHMODEL_* fields are fail-closed rendering tokens. render_paper.py fills
+% them from decision_log.paper_metadata or explicit CLI arguments.
+\pagenumbering{arabic}
+\pagestyle{plain}
+\thispagestyle{plain}
+
+\begin{center}
+  {\zihao{3}\bfseries 基于多维需求特征画像与滚动时域安全库存的多品种小批量物料动态排产优化模型}\par
+  \vspace{1em}
+  {\zihao{4}\bfseries 摘要}
+\end{center}
+\input{sections/abstract}
+\par\noindent\textbf{关键词：}多品种小批量；间歇性需求预测；动态安全库存；滚动时域排产；Pareto多目标优化；延迟在途库存
+
+% The electronic paper must start with a one-page abstract sheet. Starting the
+% body on any page other than page 2 is a submission-format error.
+\clearpage
+\ifnum\value{page}=2\relax\else
+  \PackageError{mathmodel-cumcm}
+    {CUMCM abstract must fit on the first page}
+    {Shorten the title, abstract, or keywords before submission.}
+\fi
+\setcounter{mathmodelbodystartpage}{\value{page}}
+
+% The Markdown section files own their headings. No table of contents is added.
+\input{sections/1_problem_restate}\input{sections/2_problem_analysis}\input{sections/3_assumptions}\input{sections/4_notation}\input{sections/5_models}\input{sections/6_sensitivity}\input{sections/7_evaluation}\input{sections/8_references}
+% An explicit no-AI declaration belongs immediately after the references.
+% When AI was used, render_ai_usage.py does not create this source file and the
+% renderer removes this whole optional block.
+% Flush deferred body floats before measuring. At this point \value{page} is
+% the first appendix page, so subtracting the body start yields the body length.
+\clearpage
+\setcounter{mathmodelbodypages}{%
+  \numexpr\value{page}-\value{mathmodelbodystartpage}\relax}
+\typeout{MATHMODEL:CUMCM_BODY_PAGES=\arabic{mathmodelbodypages}}
+\ifnum\value{mathmodelbodypages}>30\relax
+  \PackageError{mathmodel-cumcm}
+    {CUMCM body exceeds 30 pages}
+    {Shorten the main text. Appendices are counted separately.}
+\fi
+
+\appendix
+\input{sections/appendix_code}
+\end{document}

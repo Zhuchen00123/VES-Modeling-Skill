@@ -211,6 +211,10 @@ python <skill>/scripts/run_ves_problem.py \
 
 规则:
 - `status=verified` 才可写入 `ves_metrics`（回归另存 `verified_rmse/verified_mae`）并最终进论文；`no_verified`（CLI 退出码 3）不是成功证据。
+- **自动生成实验报告**: VES 运行结束后，调用报告生成脚本提取 verified 指标、密码学哈希并自动同步至 `decision_log`：
+  ```bash
+  python <skill>/scripts/render_ves_report.py --manifest <项目>/state/<Qi>_manifest.json --qi <Qi>
+  ```
 - 输出是 normalized manifest（schema 1.1，仅稳定字段，原子写）；`best_evidence/records/best_code` 内容不序列化，只留路径与 sha256；数据契约、slice 特有参数与 `capabilities()`/`API_SCHEMA_VERSION` 一并记录。
 - 未知真值输入使用 `--apply`（`apply_<slice>_solution`）：状态恒为 `produced_unverified`，只记录预测文件、哈希与 runner 信息，绝不写任何质量指标。
 - `generator=mock` 仅限可信夹具本地；真实候选必须 `generator=llm` + Docker。

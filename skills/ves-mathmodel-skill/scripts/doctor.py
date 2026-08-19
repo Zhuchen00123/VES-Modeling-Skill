@@ -140,6 +140,8 @@ def run_checks(
         "scripts/render_ai_usage.py",
         "scripts/run_ves_regression.py",
         "scripts/run_ves_problem.py",
+        "scripts/ves_scaffold.py",
+        "scripts/render_ves_report.py",
         "templates/shared/ai_usage_ledger.json",
         "templates/latex/cumcm/main.tex",
         "templates/latex/mcm/main.tex",

@@ -1,0 +1,95 @@
+\section{附录：核心算法求解代码}\label{ux9644ux5f55ux6838ux5fc3ux7b97ux6cd5ux6c42ux89e3ux4ee3ux7801}
+
+\begin{verbatim}
+# ==============================================================================
+# 2022 CUMCM E题: 多品种小批量物料生产排产与多目标库存控制核心求解程序
+# ==============================================================================
+import numpy as np
+import pandas as pd
+
+def simulate_pipeline_scheduling(demands, k_lead_time=1, z_factor=1.2, 
+                                is_pareto_cost=False, s_factor=0.5):
+    """
+    通用提前期 k (>=1) 管道在途库存状态转移与滚动时域排产算法
+    """
+    total_weeks = len(demands)
+    P = np.zeros(total_weeks + 20)
+    I = np.zeros(total_weeks + 20)
+    B = np.zeros(total_weeks + 20)
+    SL = np.zeros(total_weeks + 20)
+    S_avail = np.zeros(total_weeks + 20)
+    
+    # 初值条件: 第 100 周末零库存零缺货
+    I[100] = 0.0
+    B[100] = 0.0
+    
+    # 提前期管道初值注入 (保证第 101 周初无缝衔接)
+    for j in range(1, k_lead_time + 1):
+        order_week = 101 - j
+        arrival_week = order_week + k_lead_time
+        if arrival_week <= total_weeks:
+            P[order_week] = demands[arrival_week - 1]
+            
+    # 第 101 周初可用量
+    S_avail[101] = I[100] + P[101 - k_lead_time]
+    d_101 = demands[100]
+    if S_avail[101] >= d_101:
+        I[101] = S_avail[101] - d_101
+        B[101] = 0.0
+        SL[101] = 1.0
+    else:
+        I[101] = 0.0
+        B[101] = d_101 - S_avail[101]
+        SL[101] = 1.0 - (B[101] / d_101) if d_101 > 0 else 1.0
+        
+    # 滚动时域排产 (第 101 周至 177 周)
+    for w in range(101, 178):
+        hist = demands[:w-1]
+        window = min(len(hist), 12)
+        mean_d = np.mean(hist[-window:])
+        std_d = np.std(hist[-window:])
+        
+        # 管道在途订单总和
+        pipeline_in_flight = sum(P[w - j] for j in range(1, k_lead_time))
+        
+        # 目标库存地位 (Order-up-to level)
+        ss_k = z_factor * np.sqrt(k_lead_time) * std_d
+        target_ip = (k_lead_time + 1) * mean_d + ss_k
+        current_ip = I[w-1] + pipeline_in_flight
+        
+        if is_pareto_cost:
+            reorder_threshold = s_factor * target_ip
+            if current_ip <= reorder_threshold:
+                P[w] = max(0.0, target_ip - current_ip)
+            else:
+                P[w] = 0.0
+        else:
+            P[w] = max(0.0, target_ip - current_ip)
+            
+        P[w] = np.ceil(P[w])
+        
+        # 推进到下一周结算
+        if w < 177:
+            next_w = w + 1
+            arriving_p = P[next_w - k_lead_time]
+            S_avail[next_w] = I[w] + arriving_p
+            d_next = demands[next_w - 1]
+            if S_avail[next_w] >= d_next:
+                I[next_w] = S_avail[next_w] - d_next
+                B[next_w] = 0.0
+                SL[next_w] = 1.0
+            else:
+                I[next_w] = 0.0
+                B[next_w] = d_next - S_avail[next_w]
+                SL[next_w] = 1.0 - (B[next_w] / d_next) if d_next > 0 else 1.0
+                
+    res_weeks = range(101, 178)
+    return pd.DataFrame({
+        '周': res_weeks,
+        '生产计划/件': [P[w] for w in res_weeks],
+        '实际需求量/件': [demands[w-1] for w in res_weeks],
+        '库存量/件': [I[w] for w in res_weeks],
+        '缺货量/件': [B[w] for w in res_weeks],
+        '服务水平': [SL[w] for w in res_weeks]
+    })
+\end{verbatim}

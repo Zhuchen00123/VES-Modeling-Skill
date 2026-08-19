@@ -1,0 +1,52 @@
+\section{七、模型评价与推广}\label{ux4e03ux6a21ux578bux8bc4ux4ef7ux4e0eux63a8ux5e7f}
+
+\subsection{7.1
+模型的优缺点}\label{ux6a21ux578bux7684ux4f18ux7f3aux70b9}
+
+\subsubsection{7.1.1
+核心优势与创新点}\label{ux6838ux5fc3ux4f18ux52bfux4e0eux521bux65b0ux70b9}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  \textbf{严格的时序因果律与工业落地可行性}： 排产算法在第 \(t\)
+  周决策时严格仅调用 \(t-1\)
+  周及以前信息，绝无任何未来数据穿越，完全满足企业周度计划排程实际运作环境。
+\item
+  \textbf{多品种异质性资金占用精益管控}：
+  突破了传统库存模型中对单价无差异对待的缺陷，深度融合物料单价梯次（38元～1.8万元），构建
+  Pareto 多目标权衡，显著降低了超高单价关键物料的流动资金沉淀。
+\item
+  \textbf{闭环管道在途库存补偿机制}： 针对任意提前期
+  \(k\ge 2\)，从离散状态空间理论推导出显式超前累积需求补偿控制律，有效消除了多期滞后引发的供应链``牛鞭效应''与过度排产。
+\end{enumerate}
+
+\subsubsection{7.1.2
+局限性与改进空间}\label{ux5c40ux9650ux6027ux4e0eux6539ux8fdbux7a7aux95f4}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  \textbf{产线产能上限约束简化}：
+  模型假设各物料具有独立充裕的加工产能。若多家物料共用同一瓶颈产线或贴片机台，需进一步引入混合整数线性规划（MILP）进行多物料协同排产。
+\item
+  \textbf{提前期随机性扩展}： 假设提前期 \(L=k\)
+  为确定整数周，未考虑极端供应链物流延误带来的随机提前期（Stochastic
+  Lead Time）。
+\end{enumerate}
+
+\subsection{7.2
+模型的实际工程推广}\label{ux6a21ux578bux7684ux5b9eux9645ux5de5ux7a0bux63a8ux5e7f}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  \textbf{向多级供应链（Multi-Echelon Supply Chain）拓展}：
+  可将本模型的管道状态转移方程推广至``供应商-制造厂-分销中心''的三级供应链级联网络，实现全局在途与在库库存协同优化。
+\item
+  \textbf{动态价格弹性与季节性促销联动}：
+  可在预测层引入外部宏观经济指标与动态价格弹性矩阵，拓展为``定价-预测-排产''一体化数字孪生决策系统。
+\end{enumerate}

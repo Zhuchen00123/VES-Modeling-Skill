@@ -1,0 +1,364 @@
+\section{五、模型的建立与求解}\label{ux4e94ux6a21ux578bux7684ux5efaux7acbux4e0eux6c42ux89e3}
+
+\subsection{5.1 问题
+1：重点物料筛选与周需求预测模型}\label{ux95eeux9898-1ux91cdux70b9ux7269ux6599ux7b5bux9009ux4e0eux5468ux9700ux6c42ux9884ux6d4bux6a21ux578b}
+
+\subsubsection{5.1.1 多维评价指标构建与 ABC-XYZ
+分类}\label{ux591aux7ef4ux8bc4ux4ef7ux6307ux6807ux6784ux5efaux4e0e-abc-xyz-ux5206ux7c7b}
+
+为从 284 种物料中筛选出兼具业务代表性、价值重要性与需求典型性的 6
+种关键物料，本研究从频数、数量、波动、单价和销售总额五个维度构建综合评价指标向量
+\(\boldsymbol{x}_i = (f_{i,1}, f_{i,2}, f_{i,3}, f_{i,4}, f_{i,5})\)：
+1. \textbf{需求频数（下单周数）\(f_{i,1}\)}：全期 177
+周中实际发生订单的周数 \(N_{i,\text{active}}\)，反映物料需求的活跃程度。
+2. \textbf{需求总量 \(f_{i,2}\)}：全期累计需求总量
+\(\sum_{t=1}^{177} D_{i,t}\)，表征物料的市场消耗规模。 3.
+\textbf{需求稳定性（离散程度）\(f_{i,3}\)}：以需求变异系数
+\(CV_i = \sigma_{D,i} / \mu_{D,i}\) 衡量时序波动性。 4. \textbf{销售单价
+\(f_{i,4}\)}：加权平均销售单价
+\(c_i = \frac{\sum_{k} p_{i,k} d_{i,k}}{\sum_k d_{i,k}}\)（元/件）。 5.
+\textbf{累计销售额 \(f_{i,5}\)}：物料创造的总营业额
+\(R_i = \sum_{t=1}^{177} D_{i,t} \cdot c_i\)。
+
+首先基于帕累托 70-20-10 法则划分累计销售额贡献（A/B/C
+类），并依据变异系数 \(CV \le 1.0\)（X
+类低波动）、\(1.0 < CV \le 2.0\)（Y 类中波动）、\(CV > 2.0\)（Z
+类高波动）构建 ABC-XYZ 二维特征矩阵。
+
+\subsubsection{5.1.2 熵权 TOPSIS
+综合评价优选模型}\label{ux71b5ux6743-topsis-ux7efcux5408ux8bc4ux4ef7ux4f18ux9009ux6a21ux578b}
+
+为消除主观偏好，采用熵权法（Entropy Weight Method）客观确定各指标权重：
+1. \textbf{极小-极大标准化}：
+对于效益型指标（\(f_1, f_2, f_4, f_5\)），\(r_{ij} = \frac{x_{ij} - \min_i x_{ij}}{\max_i x_{ij} - \min_i x_{ij}}\)；对于成本型指标（\(CV\)），\(r_{ij} = \frac{\max_i x_{ij} - x_{ij}}{\max_i x_{ij} - \min_i x_{ij}}\)。
+2. \textbf{信息熵与客观权重计算}： 计算特征比重
+\(p_{ij} = \frac{r_{ij} + \epsilon}{\sum_{i=1}^m (r_{ij} + \epsilon)}\)，信息熵
+\(e_j = -\frac{1}{\ln m} \sum_{i=1}^m p_{ij} \ln p_{ij}\)，权重计算为
+\(w_j = \frac{1 - e_j}{\sum_{k=1}^n (1 - e_k)}\)。
+计算得出权重：下单周数 \(w_1 = 0.1724\)，需求总量
+\(w_2 = 0.2647\)，平均单价 \(w_4 = 0.0742\)，销售总额
+\(w_5 = 0.2241\)，平均周需求 \(w_3 = 0.2647\)。 3.
+\textbf{加权规范阵与理想解距离计算}： 加权向量
+\(z_{ij} = w_j r_{ij}\)。正理想解 \(Z_j^+ = \max_i z_{ij}\)，负理想解
+\(Z_j^- = \min_i z_{ij}\)。计算综合贴近度得分：
+\[C_i = \frac{D_i^-}{D_i^+ + D_i^-} = \frac{\sqrt{\sum_{j=1}^n (z_{ij} - Z_j^-)^2}}{\sqrt{\sum_{j=1}^n (z_{ij} - Z_j^+)^2} + \sqrt{\sum_{j=1}^n (z_{ij} - Z_j^-)^2}}\]
+
+结合综合得分 \(C_i\) 与需求代表性分布，最终选定 6
+种典型重点物料，其特征属性如表 5.1 所示：
+
+\begin{table}[H]
+\centering
+\caption{选定的 6 种重点物料特征画像与综合评价结果}
+\label{tab:mat_select}
+\begin{tabular}{cccccccc}
+\toprule
+\textbf{物料编码} & \textbf{总需求量/件} & \textbf{下单周数} & \textbf{单价/元} & \textbf{总销售额/万元} & \textbf{变异系数$CV$} & \textbf{ABC-XYZ} & \textbf{TOPSIS得分} \\
+\midrule
+6004020918 & 2213 & 157 & 2289.65 & 506.70 & 1.10 & AY & 0.6533 (第1) \\
+6004010174 & 2601 & 113 & 1296.90 & 392.17 & 1.62 & AY & 0.6330 (第3) \\
+6004010252 & 4103 & 27 & 421.31 & 172.86 & 4.13 & AZ & 0.6135 (第4) \\
+6004020503 & 3011 & 149 & 430.84 & 129.73 & 0.96 & BX & 0.5816 (第6) \\
+6004010256 & 1585 & 150 & 1358.20 & 215.27 & 1.04 & AY & 0.4673 (第9) \\
+6004020900 & 717 & 119 & 6331.49 & 453.97 & 1.05 & AY & 0.4407 (第10) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\textwidth]{figures/fig1_abc_xyz_distribution.pdf}
+\caption{284种物料多维特征分布与 ABC-XYZ 分类体系（选定 6 种重点物料突出标注）}
+\label{fig:fig1}
+\end{figure}
+
+\subsubsection{5.1.3
+周需求预测模型与滚动回测评估}\label{ux5468ux9700ux6c42ux9884ux6d4bux6a21ux578bux4e0eux6edaux52a8ux56deux6d4bux8bc4ux4f30}
+
+针对所选物料的非平稳与间歇特性，对比构建了四类时序预测模型： 1.
+\textbf{Croston 间歇需求法}： 解耦非零需求量 \(z_t\) 与需求间隔
+\(p_t\)：
+\[z_t = \alpha d_t + (1-\alpha) z_{t-1}, \quad p_t = \alpha q_t + (1-\alpha) p_{t-1}\]
+预测值 \(\hat{d}_{t+1} = z_t / p_t\)。 2. \textbf{SBA (Syntetos-Boylan
+Approximation) 修正模型}： 克服 Croston 存在的向上系统偏差：
+\[\hat{d}_{t+1} = \left(1 - \frac{\alpha}{2}\right) \frac{z_t}{p_t}\] 3.
+\textbf{移动平均与指数平滑（MA / SES）}：
+作为连续需求与平稳序列的基准预测模型。
+
+在第 1～100
+周历史数据上采用滚动时序交叉验证（Rolling-CV），计算均方根误差（RMSE）、平均绝对误差（MAE）与加权绝对百分比误差（WAPE），对比结果如表
+5.2 所示：
+
+\begin{table}[H]
+\centering
+\caption{前 100 周历史数据上预测模型滚动交叉验证误差对比}
+\label{tab:forecast_cv}
+\begin{tabular}{ccccc}
+\toprule
+\textbf{物料编码} & \textbf{最优模型} & \textbf{RMSE (件)} & \textbf{MAE (件)} & \textbf{WAPE (\%)} \\
+\midrule
+6004020918 & MA(4) / SBA & 14.85 & 10.91 & 80.90\% \\
+6004010174 & SBA ($\alpha=0.2$) & 33.04 & 19.24 & 65.10\% \\
+6004010252 & SES ($\alpha=0.2$) & 90.24 & 25.83 & 215.21\% \\
+6004020503 & MA(4) & 14.07 & 11.29 & 69.43\% \\
+6004010256 & SBA ($\alpha=0.1$) & 12.12 & 7.80 & 73.70\% \\
+6004020900 & SES ($\alpha=0.2$) & 4.35 & 3.42 & 50.03\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.88\textwidth]{figures/fig2_forecasting_comparison.pdf}
+\caption{选定 6 种重点物料全期需求时序波动与滑动趋势对比}
+\label{fig:fig2}
+\end{figure}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{\texorpdfstring{5.2 问题 2：提前期 \(L=1\)
+的滚动生产排产模型}{5.2 问题 2：提前期 L=1 的滚动生产排产模型}}\label{ux95eeux9898-2ux63d0ux524dux671f-l1-ux7684ux6edaux52a8ux751fux4ea7ux6392ux4ea7ux6a21ux578b}
+
+\subsubsection{5.2.1
+系统动力学状态转移方程}\label{ux7cfbux7edfux52a8ux529bux5b66ux72b6ux6001ux8f6cux79fbux65b9ux7a0b}
+
+在提前期 \(L=1\) 周的约束下，第 \(t\) 周初下达的生产计划 \(P_t\) 将于第
+\(t+1\) 周初送达。系统遵循如下离散状态转移方程： 1.
+\textbf{周初可用供给量}： \[S_t = I_{t-1} + P_{t-1}\] 2.
+\textbf{周末结存库存量与缺货量}：
+\[I_t = \max(0, S_t - D_t) = \max(0, I_{t-1} + P_{t-1} - D_t)\]
+\[B_t = \max(0, D_t - S_t) = \max(0, D_t - I_{t-1} - P_{t-1})\] 3.
+\textbf{当周服务水平}：
+\[SL_t = \begin{cases} 1 - \frac{B_t}{D_t} = \frac{\min(S_t, D_t)}{D_t}, & D_t > 0 \\ 1.0, & D_t = 0 \end{cases}\]
+4. \textbf{初值条件}：
+\[I_{100} = 0, \quad B_{100} = 0, \quad P_{100} = D_{101}\] 由此推得第
+101 周初可用量 \(S_{101} = I_{100} + P_{100} = D_{101}\)，保证第 101
+周末 \(I_{101} = 0, B_{101} = 0, SL_{101} = 1.0\)。
+
+\subsubsection{5.2.2
+基于预测期望与动态安全库存的排产决策算法}\label{ux57faux4e8eux9884ux6d4bux671fux671bux4e0eux52a8ux6001ux5b89ux5168ux5e93ux5b58ux7684ux6392ux4ea7ux51b3ux7b56ux7b97ux6cd5}
+
+在第 \(t\) 周初决策 \(P_t\) 时，只能利用历史数据
+\(\{D_1, \dots, D_{t-1}\}\)。为满足第 \(t+1\)
+周需求并保障全期平均服务水平 \(\overline{SL} \ge 85\%\)，建立动态
+Base-Stock 控制律： 1. 计算第 \(t\) 周与第 \(t+1\) 周的需求预测期望
+\(\hat{D}_t, \hat{D}_{t+1}\) 及残差标准差 \(\sigma_{e,t}\)； 2. 估计第
+\(t\)
+周末结存库存期望：\(\hat{I}_t = \max(0, I_{t-1} + P_{t-1} - \hat{D}_t)\)；
+3. 设定第 \(t+1\) 周的目标补库基准
+\(M_{t+1} = \hat{D}_{t+1} + z \cdot \sigma_{e,t}\)； 4.
+决策当周生产排产量：
+\[P_t = \left\lceil \max\left(0, \; \hat{D}_{t+1} + z \cdot \sigma_{e,t} - \hat{I}_t\right) \right\rceil\]
+
+\subsubsection{5.2.3
+求解结果与表格呈现}\label{ux6c42ux89e3ux7ed3ux679cux4e0eux8868ux683cux5448ux73b0}
+
+对物料 6004020918，求解得到第 101～110 周明细结果（表 5.3，即正文表
+1）：
+
+\begin{table}[H]
+\centering
+\caption{物料 6004020918 第 101～110 周的生产计划、实际需求、库存、缺货量及服务水平}
+\label{tab:q2_table1}
+\begin{tabular}{cccccc}
+\toprule
+\textbf{周} & \textbf{生产计划/件} & \textbf{实际需求量/件} & \textbf{库存量/件} & \textbf{缺货量/件} & \textbf{服务水平} \\
+\midrule
+101 & 4.0 & 23.0 & 0.0 & 0.0 & 1.0000 \\
+102 & 15.0 & 16.0 & 0.0 & 12.0 & 0.2500 \\
+103 & 12.0 & 12.0 & 3.0 & 0.0 & 1.0000 \\
+104 & 9.0 & 2.0 & 13.0 & 0.0 & 1.0000 \\
+105 & 1.0 & 8.0 & 14.0 & 0.0 & 1.0000 \\
+106 & 7.0 & 1.0 & 14.0 & 0.0 & 1.0000 \\
+107 & 0.0 & 11.0 & 10.0 & 0.0 & 1.0000 \\
+108 & 11.0 & 51.0 & 0.0 & 41.0 & 0.1961 \\
+109 & 15.0 & 5.0 & 6.0 & 0.0 & 1.0000 \\
+110 & 6.0 & 21.0 & 0.0 & 0.0 & 1.0000 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+对 6 种重点物料在第 101～177 周（全期 77 周）的综合平均指标如表
+5.4（正文表 2）所示：
+
+\begin{table}[H]
+\centering
+\caption{问题 2 选定的 6 种物料全期（101～177周）综合排产结果汇总表}
+\label{tab:q2_table2}
+\begin{tabular}{cccccc}
+\toprule
+\textbf{物料编码} & \textbf{平均生产计划/(件/周)} & \textbf{平均实际需求量/(件/周)} & \textbf{平均库存量/(件/周)} & \textbf{平均缺货量/(件/周)} & \textbf{平均服务水平} \\
+\midrule
+6004020918 & 6.77 & 9.84 & 6.32 & 3.06 & 85.43\% \\
+6004010174 & 7.73 & 9.31 & 14.45 & 1.61 & 95.03\% \\
+6004010252 & 4.06 & 3.55 & 75.86 & 0.30 & 99.43\% \\
+6004020503 & 13.69 & 19.31 & 14.77 & 5.57 & 85.96\% \\
+6004010256 & 8.90 & 11.10 & 6.79 & 2.25 & 87.37\% \\
+6004020900 & 3.42 & 4.61 & 3.43 & 1.13 & 86.27\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+计算表明，所有 6 种物料的平均服务水平在满足 \(\ge 85\%\)
+的约束下，实现了库存平稳过渡。
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\textwidth]{figures/fig3_q2_scheduling_dynamics.pdf}
+\caption{物料 6004020918 在第 101～177 周的动态排产、需求、库存与服务水平时序演化}
+\label{fig:fig3}
+\end{figure}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{5.3 问题 3：资金占用与服务水平 Pareto
+多目标权衡优化}\label{ux95eeux9898-3ux8d44ux91d1ux5360ux7528ux4e0eux670dux52a1ux6c34ux5e73-pareto-ux591aux76eeux6807ux6743ux8861ux4f18ux5316}
+
+\subsubsection{5.3.1
+多目标成本函数建模}\label{ux591aux76eeux6807ux6210ux672cux51fdux6570ux5efaux6a21}
+
+不同物料的销售单价 \(c_i\)
+差异显著，高价物料积压将导致企业流动资金被过度侵蚀。定义每周期的系统综合运营成本为持有资金占用成本与缺货惩罚损失之和：
+\[\min_{z, s} \quad \bar{C}_i = \frac{1}{77} \sum_{t=101}^{177} \left( h \cdot c_i \cdot I_{i,t} + \gamma \cdot c_i \cdot B_{i,t} \right)\]
+\[\text{s.t.} \quad \overline{SL}_i = \frac{1}{77} \sum_{t=101}^{177} SL_{i,t} \ge 85\%, \quad P_{i,t} \ge 0, \quad P_{i,t} \in \mathbb{N}\]
+其中设年化资金成本对应的周持有成本率 \(h = 0.3\%\)，缺货机会损失惩罚倍数
+\(\gamma = 2.0\)。
+
+\subsubsection{\texorpdfstring{5.3.2 动态 \((s, S)\) 订货点调整策略与
+Pareto
+搜索}{5.3.2 动态 (s, S) 订货点调整策略与 Pareto 搜索}}\label{ux52a8ux6001-s-s-ux8ba2ux8d27ux70b9ux8c03ux6574ux7b56ux7565ux4e0e-pareto-ux641cux7d22}
+
+引入价格敏感的再订货点触发机制：只有当预期在库量低于再订货点
+\(s_{i,t} = \kappa_s \cdot (\hat{D}_{t+1} + z_i \sigma_{e,t})\)
+时才触发排产，目标补至
+\(S_{i,t} = \hat{D}_{t+1} + z_i \sigma_{e,t}\)。通过全空间网格搜索构建
+Pareto 前沿。
+
+对物料 6004020918，调整后的第 101～110 周明细结果如表 5.5（正文表
+1）所示：
+
+\begin{table}[H]
+\centering
+\caption{问题 3 物料 6004020918 第 101～110 周优化调整后的排产与库存明细表}
+\label{tab:q3_table1}
+\begin{tabular}{cccccc}
+\toprule
+\textbf{周} & \textbf{生产计划/件} & \textbf{实际需求量/件} & \textbf{库存量/件} & \textbf{缺货量/件} & \textbf{服务水平} \\
+\midrule
+101 & 21.0 & 23.0 & 0.0 & 0.0 & 1.0000 \\
+102 & 25.0 & 16.0 & 5.0 & 0.0 & 1.0000 \\
+103 & 14.0 & 12.0 & 18.0 & 0.0 & 1.0000 \\
+104 & 7.0 & 2.0 & 30.0 & 0.0 & 1.0000 \\
+105 & 1.0 & 8.0 & 29.0 & 0.0 & 1.0000 \\
+106 & 7.0 & 1.0 & 29.0 & 0.0 & 1.0000 \\
+107 & 1.0 & 11.0 & 25.0 & 0.0 & 1.0000 \\
+108 & 11.0 & 51.0 & 0.0 & 25.0 & 0.5098 \\
+109 & 46.0 & 5.0 & 6.0 & 0.0 & 1.0000 \\
+110 & 6.0 & 21.0 & 31.0 & 0.0 & 1.0000 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+6 种物料在问题 3 下的全期综合结果汇总如表 5.6（正文表 2）所示：
+
+\begin{table}[H]
+\centering
+\caption{问题 3 选定的 6 种物料综合排产优化结果汇总表}
+\label{tab:q3_table2}
+\begin{tabular}{ccccccc}
+\toprule
+\textbf{物料编码} & \textbf{单价/元} & \textbf{平均计划/(件/周)} & \textbf{平均需求/(件/周)} & \textbf{平均库存/(件/周)} & \textbf{平均服务水平} & \textbf{综合周均成本/元} \\
+\midrule
+6004020918 & 2289.65 & 9.61 & 9.84 & 22.35 & 98.21\% & 3543.40 \\
+6004010174 & 1296.90 & 9.40 & 9.31 & 39.19 & 100.00\% & 152.50 \\
+6004010252 & 421.31 & 3.68 & 3.55 & 43.38 & 100.00\% & 34.71 \\
+6004020503 & 430.84 & 17.35 & 19.31 & 38.31 & 96.20\% & 861.12 \\
+6004010256 & 1358.20 & 11.22 & 11.10 & 25.51 & 99.81\% & 209.76 \\
+6004020900 & 6331.49 & 4.35 & 4.61 & 8.22 & 98.23\% & 2622.96 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.75\textwidth]{figures/fig4_q3_pareto_tradeoff.pdf}
+\caption{资金占用成本与履约服务水平多目标 Pareto 权衡前沿}
+\label{fig:fig4}
+\end{figure}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{\texorpdfstring{5.4 问题 4：提前期 \(L=k \ge 2\)
+的通用多步延迟排产与推广}{5.4 问题 4：提前期 L=k \textbackslash ge 2 的通用多步延迟排产与推广}}\label{ux95eeux9898-4ux63d0ux524dux671f-lk-ge-2-ux7684ux901aux7528ux591aux6b65ux5ef6ux8fdfux6392ux4ea7ux4e0eux63a8ux5e7f}
+
+\subsubsection{5.4.1 管道在途库存（Pipeline
+Inventory）状态转移方程}\label{ux7ba1ux9053ux5728ux9014ux5e93ux5b58pipeline-inventoryux72b6ux6001ux8f6cux79fbux65b9ux7a0b}
+
+当提前期为 \(L=k \ge 2\) 时，第 \(t\) 周初下达的生产计划 \(P_t\) 将在第
+\(t+k\) 周初送达。在第 \(t\) 周初，系统不仅拥有前周末在库库存
+\(I_{t-1}\)，还包含正在管道中流转的在途订单序列
+\(\{P_{t-k+1}, P_{t-k+2}, \dots, P_{t-1}\}\)。 1.
+\textbf{当周到达量与可用物资}： \[S_t = I_{t-1} + P_{t-k}\] 2.
+\textbf{周末状态更新}：
+\[I_t = \max(0, S_t - D_t) = \max(0, I_{t-1} + P_{t-k} - D_t)\]
+\[B_t = \max(0, D_t - S_t) = \max(0, D_t - I_{t-1} - P_{t-k})\] 3.
+\textbf{初值条件设定（以 \(L=2\) 为例）}：
+\[I_{100} = 0, \quad B_{100} = 0, \quad P_{99} = D_{101}, \quad P_{100} = D_{102}\]
+使得第 101 周初可用量
+\(S_{101} = I_{100} + P_{99} = D_{101}\)，保证初值无缝衔接。
+
+\subsubsection{5.4.2
+多步超前累积需求补偿控制律}\label{ux591aux6b65ux8d85ux524dux7d2fux79efux9700ux6c42ux8865ux507fux63a7ux5236ux5f8b}
+
+为避免时滞引发的开环超调震荡，定义涵盖在途订单的\textbf{系统总库存地位（Inventory
+Position, \(IP_t\)）}： \[IP_t = I_{t-1} + \sum_{j=1}^{k-1} P_{t-j}\]
+在第 \(t\) 周初至第 \(t+k\) 周初期间，系统需满足未来 \(k\)
+周的累积需求期望 \(\sum_{j=0}^{k-1} \hat{D}_{t+j}\) 及提前期安全库存
+\(SS^{(k)} = z \sqrt{k} \sigma_D\)。由此推导出通用闭环排产控制律：
+\[P_t = \left\lceil \max\left(0, \; (k+1)\hat{D}_{t} + z \sqrt{k} \sigma_D - IP_t\right) \right\rceil\]
+
+\subsubsection{\texorpdfstring{5.4.3 \(L=2\)
+计算结果与多提前期外推推广}{5.4.3 L=2 计算结果与多提前期外推推广}}\label{l2-ux8ba1ux7b97ux7ed3ux679cux4e0eux591aux63d0ux524dux671fux5916ux63a8ux63a8ux5e7f}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  \textbf{\(L=2\) 综合排产结果}：如表 5.7 所示，在 \(L=2\)
+  下各物料平均服务水平依然稳定在 87.91\%～100.00\%。
+\end{enumerate}
+
+\begin{table}[H]
+\centering
+\caption{提前期 $L=2$ 时 6 种物料全期排产综合结果表}
+\label{tab:q4_table2}
+\begin{tabular}{cccccc}
+\toprule
+\textbf{物料编码} & \textbf{平均计划/(件/周)} & \textbf{平均需求/(件/周)} & \textbf{平均库存/(件/周)} & \textbf{平均缺货/(件/周)} & \textbf{平均服务水平} \\
+\midrule
+6004020918 & 7.73 & 9.84 & 18.29 & 2.34 & 87.91\% \\
+6004010174 & 8.99 & 9.31 & 47.45 & 0.40 & 97.55\% \\
+6004010252 & 5.29 & 3.55 & 150.04 & 0.00 & 100.00\% \\
+6004020503 & 15.48 & 19.31 & 32.04 & 3.35 & 91.83\% \\
+6004010256 & 10.39 & 11.10 & 23.81 & 0.60 & 95.53\% \\
+6004020900 & 4.10 & 4.61 & 12.10 & 0.65 & 92.47\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\setcounter{enumi}{1}
+\tightlist
+\item
+  \textbf{\(k \in \{2, 3, 4, 5\}\) 通用推广外推验证}： 如图 5.5
+  所示，随着提前期 \(k\)
+  增大，管道在途库存自然增长，但由于闭环多步补偿机制的有效抑震作用，平均服务水平恒定收敛于
+  95.7\%～99.4\% 之间，验证了该理论控制律在长交期制造业中的优异普适性。
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.75\textwidth]{figures/fig5_q4_pipeline_generalization.pdf}
+\caption{提前期 $k \in \{2, 3, 4, 5\}$ 对在途库存与服务水平的影响规律}
+\label{fig:fig5}
+\end{figure}
