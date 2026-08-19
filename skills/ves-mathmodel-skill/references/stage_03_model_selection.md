@@ -71,7 +71,7 @@ Qi 候选 <ID>: <模型与模型族>
 
 **反模式 C3 检查**: 若候选只是同一方法换名字，合并重复项；若跨族方案不能解决同一任务，不得为了“多样性”加入。多样性是发现反事实的手段，不是数量门槛。
 
-**VES 可验证候选强制**: 标为 `verifier_compatible=true` 的候选必须满足对应 slice 的 VES 数据/结果契约（通用契约见 `references/ves_adaptation.md`；回归专项见 `references/ves_regression.md`），并把 `execution_backend` 设为 `ves` 或 `both`。若只能在本地验证（无宿主契约），必须 `out_of_ves_scope=true`，不得声称 VES 已验证。
+**VES 可验证候选强制**: 凡涉及数据拟合、时间序列预测、参数搜索、决策优化与策略比较的模型，必须优先对接 VES 25 类切片并设置 `execution_backend=ves`。标为 `verifier_compatible=true` 的候选必须满足对应 slice 的 VES 数据/结果契约（通用契约见 `references/ves_adaptation.md`；回归专项见 `references/ves_regression.md`）。严禁随意声明 `out_of_ves_scope=true` 逃避宿主独立验证。若确实无法对接任何切片（如纯符号论述），必须在 decision_log 中记录严苛理由并在 Stage 5/8 接受严格审查。
 
 ### Step 3: 选型决策矩阵 (30 min)
 

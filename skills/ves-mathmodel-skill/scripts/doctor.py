@@ -13,6 +13,13 @@ import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 COMPETITIONS = ("cumcm", "mcm", "diangong")
@@ -346,7 +353,13 @@ def run_checks(
 
 
 def _print_human(checks: list[Check]) -> None:
-    symbols = {"pass": "✓", "warn": "!", "fail": "✗"}
+    # Use safe symbols if stdout cannot encode unicode characters
+    try:
+        "✓".encode(sys.stdout.encoding or "ascii")
+        symbols = {"pass": "✓", "warn": "!", "fail": "✗"}
+    except (UnicodeEncodeError, TypeError):
+        symbols = {"pass": "[OK]", "warn": "[!]", "fail": "[X]"}
+
     for item in checks:
         print(f"{symbols[item.status]} {item.name}: {item.detail}")
         if item.fix and item.status != "pass":

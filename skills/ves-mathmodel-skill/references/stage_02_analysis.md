@@ -82,7 +82,7 @@ Q1 卡片
 
 **关键**: 每张 Qi 卡片的“上游依赖”列必须明确写依赖哪些结果。只有题面、数学接口或业务机制支持时才建立依赖；“题目未禁止”不构成复用证据。没有合理依赖时写“无”，并保留理由。
 
-**VES 可验证 Qi 强制标记**: 凡能映射到 VES 25 类 slice 之一（回归、时序预测、分类、优化、ODE、聚类、异常、图论、仿真等）且可满足数据契约的子问题，必须逐项填写 `ves_eligibility` / `ves_slice` / `ves_reason` / `ves_data_contract`（通用契约见 `references/ves_adaptation.md`；回归专项见 `references/ves_regression.md`）。无法满足契约时标记 `ves_eligibility=false` 或 `unclear` 并记录原因，不得在后续阶段伪装为 VES 已验证。
+**VES 可验证 Qi 强制标记**: 凡属于 VES 25 类切片范畴（回归、时序预测、分类、单/多目标优化、ODE、聚类、排队论、博弈论、图论、蒙特卡洛仿真等）的计算、预测或优化任务，**必须强制标记 `ves_eligibility=true` 并指定 `ves_slice`**。严禁将可形式化求解的优化、排产、预测问题借口复杂性或因果状态机随意打上 `out_of_ves_scope`；只有纯定性理论综述或无数据/无仿真的纯符号论述才允许置 `false`。通用契约见 `references/ves_adaptation.md`；回归专项见 `references/ves_regression.md`。
 
 ### Step 3: 关键变量统一编号 (30 min)
 

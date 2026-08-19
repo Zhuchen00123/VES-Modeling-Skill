@@ -7,7 +7,7 @@ description: CUMCM 国赛、MCM/ICM 美赛与电工杯数学建模竞赛的端�
 
 10 阶段把 72–96 小时的竞赛协作变成可恢复、可检查的流程。用户回答关键问题，agent 维护状态与脚本。每阶段产出经过 rubric 自评、定向精修与跨阶段一致性回检；Stage 8–9 先遵守当届官方规则，再做多视角终审。CUMCM 包含 91 份来源文档，其中 59 份进入文本统计；MCM/电工杯经验统计明确为 `n=0`，不提供合成分位。
 
-**VES 集成**: 回归/预测类子问题（Stage 2–9）经 `scripts/run_ves_regression.py` 薄 adapter 提交 VES 宿主验证；只接受 `status=verified` 的 normalized 指标写入决策日志与论文，mock 仅限可信夹具本地运行，`llm` 生成必须走 Docker。详见 `references/ves_regression.md`。
+**VES 集成**: 回归/预测/优化等计算类子问题（Stage 2–9）经 `scripts/run_ves_problem.py` / `scripts/run_ves_regression.py` 薄 adapter 提交 VES 宿主验证；只接受 `status=verified` 的 normalized 指标写入决策日志与论文，mock 仅限可信夹具本地运行，`llm` 生成必须走 Docker。详见 `references/ves_adaptation.md` 与 `references/ves_regression.md`。
 
 ---
 
@@ -67,7 +67,7 @@ Codex 优先按 skill 目录发现本文件:
 
 ---
 
-## VES 宿主验证 (通用多 slice 接缝)
+## VES 宿主验证 (通用多 slice 接缝 & 严防逃逸门禁)
 
 **边界**: Stage 2 判定 `ves_eligibility` 与 `ves_slice`；Stage 5 经薄 adapter 提交 VES 宿主验证：
 
@@ -76,14 +76,15 @@ Codex 优先按 skill 目录发现本文件:
 
 统一输出 normalized Evidence manifest（schema 1.1）→ `decision_log.stages.5.sub_problems.<Qi>`（`ves_slice/ves_status/ves_metrics/evidence_ref/manifest_path`）→ Stage 8/9 引用。
 
-硬性规则:
-1. **薄 adapter**：只 import 公开模块符号（`run_<slice>_search`、`apply_<slice>_solution`、`capabilities`、公开结果类型）；不 import Verifier/Judge/SearchEngine/Runner 或任何 demo/私有实现。VES 持续迭代时仅需同步能力检测与字段白名单。
-2. **candidate 自评分禁止**：指标只认宿主 verifier 产出（`best_*` / `to_summary()`）；candidate 声称的 `claimed_*`/score 一律不读。
-3. **mock 与 llm 边界**：`generator=mock` 只用于可信夹具且仅限本地（tests/fixtures）；真实候选必须 `generator=llm` + Docker runner。两者结果同样必须 `status=verified` 才能作证据。
-4. **fail-closed**：`status != "verified"`（如 `no_verified`）时脚本照写 manifest 但 CLI 非零退出，不得当成功证据；缺文件、public 泄漏 hidden labels、host 目录缺失或嵌套时，在执行搜索前明确报错。
-5. **论文引用**：Stage 8 只引用 normalized manifest 中 `status=verified` 的指标（`ves_run_id/ves_slice/ves_metrics/evidence_ref/manifest_path`）；Stage 9 复审时必须核对 manifest/artifacts/hash 存在且引用一致。
-6. **scope 外问题**：VES 目录未覆盖或无法满足数据契约的 Qi 标记 `out_of_ves_scope=true`，走常规本地建模与验证，不伪装成 VES 已验证。
-7. **当前能力边界**：上游每个 slice 都提供 `apply_*_solution`；未知真值输入上的结果状态恒为 `produced_unverified`，必须标注“已生成、未验证”，不得伪装为已验证证据。
+硬性规则（防偷懒与防自报红线）:
+1. **强制优先原则 (Mandatory VES First)**：VES 已涵盖 25 个 Vertical Slice（涵盖 regression, forecasting, classification, optimization, multiobjective, ode, clustering, queueing, markov, game, graph, montecarlo, sir 等）。凡属于 25 类问题范畴的计算、预测、优化与搜索任务，**必须将 `ves_eligibility` 设为 `true` 并调用适配器真实运行**。
+2. **严禁滥用 `out_of_ves_scope` 逃避计算**：只有纯定性理论综述、无数据/无算法仿真的符号推导才允许声明 `out_of_ves_scope=true`。凡涉及数据拟合、时间序列预测、参数搜索、排产与库存决策、分类评估等计算任务，一律**禁止声明 `out_of_ves_scope` 绕过 VES 引擎**。
+3. **薄 adapter**：只 import 公开模块符号（`run_<slice>_search`、`apply_<slice>_solution`、`capabilities`、公开结果类型）；不 import Verifier/Judge/SearchEngine/Runner 或任何 demo/私有实现。VES 持续迭代时仅需同步能力检测与字段白名单。
+4. **candidate 自评分禁止**：指标只认宿主 verifier 产出（`best_*` / `to_summary()`）；candidate 声称的 `claimed_*`/score 一律不读。严禁在本地 Python 脚本中自跑自报未经宿主 verified 的指标。
+5. **mock 与 llm 边界**：`generator=mock` 只用于可信夹具且仅限本地（tests/fixtures）；真实候选必须 `generator=llm` + Docker runner。两者结果同样必须 `status=verified` 才能作证据。
+6. **fail-closed 门禁**：`status != "verified"`（如 `no_verified`）时脚本照写 manifest 但 CLI 非零退出，不得当成功证据；未生成真实 manifest 文件或 `status != verified` 时，`score_artifact.py` 与 `render_paper.py` 将阻断流程继续流转。
+7. **论文引用**：Stage 8 只引用 normalized manifest 中 `status=verified` 的指标（`ves_run_id/ves_slice/ves_metrics/evidence_ref/manifest_path`）；Stage 9 复审时必须核对 manifest/artifacts/hash 真实存在且引用一致。
+8. **当前能力边界**：上游每个 slice 都提供 `apply_*_solution`；未知真值输入上的结果状态恒为 `produced_unverified`，必须标注“已生成、未验证”，不得伪装为已验证证据。
 
 ---
 
@@ -184,14 +185,14 @@ Codex 优先按 skill 目录发现本文件:
 - stage 1-9: `references/rubrics.md` 对应章节 (L1 评分用)
 - **stage 1**: `competitions/<comp>/topic_specs.json` (题号 → task_type 映射)
 - stage 3, 5: `references/model_catalog.md` (跨竞赛通用)
-- **stage 5 (回归/预测子问题)**: `references/ves_regression.md` 必读, 按契约调用 `scripts/run_ves_regression.py`
+- **stage 5 (计算与预测类子问题)**: `references/ves_adaptation.md` / `references/ves_regression.md` 必读, 按契约调用 `scripts/run_ves_problem.py` 或 `scripts/run_ves_regression.py`
 - **stage 5**: per-Qi 评分跑完后调 `scripts/score_artifact.py --mode aggregate_qi` 聚合
 - **stage 0 / 8 / 9**: `competitions/<comp>/current_rules.md` 存在时读取，并核对其中官方链接
 - **stage 8**: `competitions/<comp>/{winning_patterns, phrase_bank, abstract_template, paper_skeleton}.md`
-- **stage 8 (含回归子问题)**: 只引用 `references/ves_regression.md` 定义的 normalized verified 指标
+- **stage 8 (含计算子问题)**: 只引用 normalized manifest 中 `status=verified` 的指标
 - **stage 8 经验锚点**: `competitions/<comp>/empirical.json` 只作评分前参考；CUMCM 为 59 份可提取样本的观察分位，MCM/电工杯为 `n=0` 占位且不得推断数值门槛
 - **stage 9**: 先做规则合规门，再用 `anti_patterns.md` 与 `rubric_overlay.json` 的 panel personas
-- **stage 9 (含回归子问题)**: 复核 VES manifest/artifacts/hash 与论文引用一致, `status=verified` 缺失即编译/提交 fail-closed
+- **stage 9 (含计算子问题)**: 复核 VES manifest/artifacts/hash 与论文引用一致, `status=verified` 缺失即编译/提交 fail-closed
 - 触发反馈时: 对应 `references/feedback_layer*.md`
 - harness 适配差异 (Codex 用户必读): `references/harness_compat.md`
 
@@ -227,7 +228,7 @@ Codex 优先按 skill 目录发现本文件:
 - root: `competition`, `task_type`, `mode`, `current_stage`, `budget`, `events`, `compliance`
 - stage_5 扩展: `qi_count`, `qi_weights`, `qi_status`
 - scores 扩展: 含 `weighted_mean`, `review_qis`, `refine_qis` (stage 5 加权聚合用)
-- VES 扩展 (v3.2): Stage 2 每 Qi 的 `ves_eligibility/ves_reason/ves_data_contract`；Stage 3 的 `execution_backend/verifier_compatible/out_of_ves_scope`；Stage 5 每子问题的 `ves_run_id/ves_status/verified_rmse/verified_mae/evidence_ref/manifest_path`；Stage 8/9 的 VES 引用与编译门。字段定义见 `references/ves_regression.md`。
+- VES 扩展 (v3.2): Stage 2 每 Qi 的 `ves_eligibility/ves_reason/ves_data_contract`；Stage 3 的 `execution_backend/verifier_compatible/out_of_ves_scope`；Stage 5 每子问题的 `ves_run_id/ves_status/verified_rmse/verified_mae/evidence_ref/manifest_path`；Stage 8/9 的 VES 引用与编译门。字段定义见 `references/ves_regression.md` 与 `references/ves_adaptation.md`。
 
 L2 跨阶段回检 (stage 5/6/8 末尾) 读这个文件主动找冲突, 触发**定向回滚**: 不重做整阶段, 只针对冲突点。
 

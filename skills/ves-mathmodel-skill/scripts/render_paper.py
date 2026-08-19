@@ -24,7 +24,15 @@ import os
 import re
 import subprocess
 import shutil
+import sys
 from pathlib import Path
+
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 
 
 _SKILL_ROOT = Path(__file__).resolve().parent.parent
@@ -403,7 +411,7 @@ def md_to_tex_pandoc(md_text: str) -> str:
     r = subprocess.run(
         ["pandoc", "-f", "markdown+tex_math_dollars+pipe_tables+raw_tex",
          "-t", "latex", "--no-highlight"],
-        input=md_text, capture_output=True, text=True, encoding="utf-8"
+        input=md_text, capture_output=True, text=True, encoding="utf-8", errors="replace"
     )
     if r.returncode != 0:
         raise RuntimeError(f"pandoc 失败: {r.stderr}")
@@ -660,6 +668,43 @@ def fill_template(
 
 
 # ============================================================================
+# VES 证据门禁检查
+# ============================================================================
+
+def check_ves_manifests(decision_log_path: Path | None) -> tuple[bool, list[str]]:
+    """检查 decision_log 中声明为 ves_eligibility=true 的子问题是否有真实 verified manifest。"""
+    if decision_log_path is None or not decision_log_path.is_file():
+        return True, []
+    try:
+        data = json.loads(decision_log_path.read_text(encoding="utf-8"))
+    except Exception:
+        return True, []
+
+    stage5 = data.get("stages", {}).get("5", {})
+    subproblems = stage5.get("sub_problems", {})
+    issues = []
+    if isinstance(subproblems, dict):
+        for qi, qdata in subproblems.items():
+            if isinstance(qdata, dict) and qdata.get("ves_eligibility") is True:
+                manifest_path = qdata.get("manifest_path")
+                if not manifest_path:
+                    issues.append(f"{qi}: 标记为 ves_eligibility=true 但缺少 manifest_path")
+                    continue
+                p = Path(manifest_path)
+                if not p.is_file():
+                    issues.append(f"{qi}: manifest 文件不存在 ({manifest_path})")
+                    continue
+                try:
+                    m_json = json.loads(p.read_text(encoding="utf-8"))
+                    status = m_json.get("result", {}).get("status") or m_json.get("status")
+                    if status != "verified":
+                        issues.append(f"{qi}: manifest status 为 '{status}'，必须为 'verified'")
+                except Exception as exc:
+                    issues.append(f"{qi}: manifest JSON 解析失败: {exc}")
+    return len(issues) == 0, issues
+
+
+# ============================================================================
 # 编译
 # ============================================================================
 
@@ -767,6 +812,11 @@ def main():
 
     competition = resolve_competition(args.competition, decision_log_path)
     print(f"competition: {competition}")
+
+    ves_ok, ves_issues = check_ves_manifests(decision_log_path)
+    if not ves_ok:
+        for issue in ves_issues:
+            print(f"[WARN] VES 证据门禁: {issue}")
 
     prefer_pandoc = not args.no_pandoc
     if args.no_pandoc and not args.no_compile:

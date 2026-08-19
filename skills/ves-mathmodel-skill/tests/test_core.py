@@ -287,6 +287,7 @@ class ScoreArtifactTests(unittest.TestCase):
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
+                errors="replace",
             )
 
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -339,6 +340,7 @@ class ScoreArtifactTests(unittest.TestCase):
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
+                errors="replace",
             )
 
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -384,6 +386,7 @@ class ScoreArtifactTests(unittest.TestCase):
                         capture_output=True,
                         text=True,
                         encoding="utf-8",
+                        errors="replace",
                     )
                     self.assertEqual(result.returncode, 1)
                     self.assertIn(expected, result.stdout)
@@ -688,6 +691,7 @@ class ExtractDiffTests(unittest.TestCase):
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
+                errors="replace",
             )
 
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -785,6 +789,7 @@ class DoctorTests(unittest.TestCase):
             capture_output=True,
             text=True,
             encoding="utf-8",
+            errors="replace",
         )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("不能与", result.stderr)

@@ -29,9 +29,17 @@ import os
 import argparse
 import math
 import re
+import sys
 import tempfile
 from pathlib import Path
 from datetime import datetime
+
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 
 
 VALID_VERDICTS = {
@@ -828,6 +836,19 @@ def main():
         for metric_dim, value in critique["evidence_metrics"].items():
             evidence_str = inject_evidence(metric_dim, value, empirical, by_topic=topic)
             print(f"  [empirical] {metric_dim}: {evidence_str}")
+
+    # VES 证据核验检查
+    if args.stage in (5, 8, 9) and decision_log:
+        stage5 = decision_log.get("stages", {}).get("5", {})
+        subproblems = stage5.get("sub_problems", {})
+        if isinstance(subproblems, dict):
+            target_qis = [qi_id] if (variant == "per_qi" and qi_id) else list(subproblems.keys())
+            for q in target_qis:
+                qdata = subproblems.get(q)
+                if isinstance(qdata, dict) and qdata.get("ves_eligibility") is True:
+                    mpath = qdata.get("manifest_path")
+                    if not mpath or not Path(mpath).is_file():
+                        print(f"  [WARN] VES 宿主验证缺失: {q} 声明了 ves_eligibility=true，但未找到有效 manifest")
 
     actual_verdict = compute_verdict(critique, weights_for_stage)
     label = f"stage {args.stage}" + (f" / {qi_id}" if variant == "per_qi" else "")

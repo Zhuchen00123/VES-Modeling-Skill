@@ -140,6 +140,7 @@ def install_fake_slice(
                 (run_dir / "best_solution.py").write_text(
                     ("TAMPERED\n" if tamper_best else best_code or ""),
                     encoding="utf-8",
+                    newline="\n",
                 )
             summary = {
                 "run_id": run_id,

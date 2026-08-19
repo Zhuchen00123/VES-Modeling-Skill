@@ -185,7 +185,7 @@ else:
 
 ### C2. VES 宿主验证 (VES 可验证子问题强制)
 
-凡 Stage 2 标记 `ves_eligibility=true` 的 Qi，必须用宿主验证替换/补充自评，**不得直接相信 candidate 自评分**。通用契约全文见 `references/ves_adaptation.md`；回归专项见 `references/ves_regression.md`。
+凡 Stage 2 标记 `ves_eligibility=true` 的 Qi，必须调用适配器提交宿主独立验证，产生真实落盘的 `manifest` 文件，**严禁直接相信 candidate 自评分或在本地自跑自报**。Stage 5 结束与 Stage 8 论文撰写时，评分与渲染脚本会强制核验 manifest 的物理存在性与 `status=verified` 状态。通用契约全文见 `references/ves_adaptation.md`；回归专项见 `references/ves_regression.md`。
 
 ```bash
 # 回归/预测子问题：skill 内专项薄 adapter（只调公开模块 ves_modeling.regression）
