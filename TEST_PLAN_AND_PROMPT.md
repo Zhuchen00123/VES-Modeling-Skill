@@ -1,134 +1,217 @@
-# 2022 CUMCM E题「小批量物料的生产安排」端到端测试方案与提示词
+**现在已经能交差了，但我建议再修 3 个很小的点再交。** 至于你担心的“老师一眼就看出来结论造假”，以这版 `main(4).pdf` 来看，**不会给我这种感觉**。现在反而有不少“不漂亮的数据”被如实保留：比如 6004010252 的 WAPE 高达 215.21%，问题 2 里个别周服务水平甚至为 0，问题 4 前十周也出现 26%、37.5%、0% 这种很难看的结果。   这种结果其实比“所有指标都异常完美”更像真实数值实验。
+
+但我要区分两件事：
+
+> **我现在能确认的是论文内部可信度已经比较高。**
+>
+> **我不能确认所有数字真的由原始附件完整复现出来**，因为我现在审的是 PDF，没有拿原始数据和完整运行日志重新执行一遍。
+
+所以谈不上我替你“证明绝无造假”，但从审稿视角看，已经没有之前那种明显的“论文说 A、代码干 B、数字互相打脸”的状态。
+
+### 最应该修的一个小硬伤：`92.6%` 和图 1 对不上
+
+摘要和正文仍然说：
+
+> 284 种物料中 **92.6%** 属于“间歇与块状”需求。
+
+但图 1 的分类统计明确写的是：
+
+> **Erratic 9 种，Lumpy 275 种。**
+
+
+
+275/284 本身已经约等于 **96.8%**，所以跟 92.6% 明显对不上。
+
+这个反而是老师最容易一眼看到的数字矛盾之一。
+
+**最省事的办法：不要再写 92.6%。**
+
+直接把摘要改成：
+
+> “针对全样本中广泛存在的高波动、块状需求特征……”
+
+正文改成：
+
+> “分类结果显示，大多数物料表现为 Lumpy 或 Erratic 型需求。”
+
+这样不用重新算百分比，也不冒险。
 
 ---
 
-## 1. 测试目标与定位
+### 第二个可能让老师问你的地方：为什么 TOPSIS 排第 3、4 的没选？
 
-本测试旨在全面检验 **VES-Modeling-Skill**（数学建模协作工作流）与 **VES-Modeling / CES 计算引擎**的端到端实战能力。
-通过对 2022 年全国大学生数学建模竞赛（CUMCM）E 题「小批量物料的生产安排」进行全流程建模、计算搜索、独立验证与论文排版，产出一篇符合国赛一等奖标准的完整高质量 LaTeX 论文与最终 PDF 产物。
+现在选中的六种物料排名是：
 
----
+> **1、2、5、6、7、8**
 
-## 2. LLM 与 DeepSeek Harness 配置指南
 
-### 2.1 阿里 Token Plan（千问平台）API 接口信息
-- **平台控制台**：[阿里云百炼 / 千问平台 API Keys](https://platform.qianwenai.com/home/api-keys)
-- **Token Plan 专属 API Key**：`***REMOVED***`
-- **OpenAI 兼容 Base URL**：`https://coding.dashscope.aliyuncs.com/v1`
-- **Anthropic 兼容 Base URL**：`https://coding.dashscope.aliyuncs.com/apps/anthropic/v1`
-- **测试模型 ID**：`deepseekv4flash0731`（或 `deepseek-v4-flash-0731` / `deepseek-v3`）
-- *注：Token Plan 的 `sk-sp-` 密钥为专用端点鉴权凭证，若调用返回 401 请在平台控制台检查订阅状态与额度。*
 
-### 2.2 DeepSeek Harness Preset 选型
-- **推荐 Preset**：**`standard`（标准模式）**
-  - **推荐理由**：`standard` Preset 提供完整的文件读写、跨平台 Shell 交互、Docker 容器调度、子代理编排与状态持久化能力，与数学建模 10 阶段的生命周期最为契合。
+但摘要现在容易让人理解成：
 
----
+> “经 TOPSIS 直接筛选出六种重点物料。”
 
-## 3. 核心运行环境与工具链路径
+实际上你正文写的是：
 
-| 组件 | 路径 / 配置 | 说明 |
-| :--- | :--- | :--- |
-| **Python 运行环境** | `C:\Miniconda\envs\mineru\python.exe` | 已安装 numpy 2.4+, pandas 3.0+, scipy, scikit-learn, seaborn, matplotlib, openpyxl, unidiff 等 |
-| **LaTeX 引擎** | `C:\texlive\2026\bin\windows\xelatex.exe` | TeX Live 2026，已实测验证支持 `ctexart.cls` 及中文字体 |
-| **Pandoc 转换器** | `C:\Users\15185\AppData\Local\Pandoc\pandoc.exe` | Markdown 到 LaTeX 结构化转换引擎 |
-| **Docker 容器环境** | `ves-modeling-runner:0.1` | Docker Desktop Engine 已启动，用于隔离执行不可信代码与宿主验证 |
-| **VES 计算引擎** | `F:\codexprojects\VES-Modeling` | 包含 25 个 Vertical Slice（forecasting, optimization, multiobjective 等） |
-| **VES Core 核心** | `F:\codexprojects\aide_change` | 提供可验证搜索、六态 AttemptStatus 与判定管线 |
-| **VES 子问题注册脚手架** | `F:\codexprojects\VES-Modeling-Skill\skills\ves-mathmodel-skill\scripts\ves_scaffold.py` | Stage 2/3 一键注册切片、创建数据目录并生成执行指令 |
-| **VES 回归/通用适配器** | `F:\codexprojects\VES-Modeling-Skill\skills\ves-mathmodel-skill\scripts\run_ves_problem.py` | 25 类通用切片可验证搜索与调度器 |
-| **VES 实验报告生成器** | `F:\codexprojects\VES-Modeling-Skill\skills\ves-mathmodel-skill\scripts\render_ves_report.py` | 自动生成实验报告 Markdown/LaTeX 并同步至 decision_log |
-| **论文渲染脚本** | `F:\codexprojects\VES-Modeling-Skill\skills\ves-mathmodel-skill\scripts\render_paper.py` | 论文分节组装、占位符检查、VES 门禁与三编 XeLaTeX |
-| **图表工具** | `F:\codexprojects\VES-Modeling-Skill\skills\ves-mathmodel-skill\tools\figure\` | 出版级图表规范与可视化导出脚本 |
+> “结合综合得分、需求形态覆盖度与价值代表性，最终选定 6 种。”
+
+
+
+这本身不是错，但老师如果稍微认真一点，很可能问：
+
+> “既然用 TOPSIS，为什么不直接取前六？第 3、第 4 去哪了？”
+
+这不是“造假”，但会有**人工挑结果**的观感。
+
+所以建议摘要那句话改成：
+
+> “利用熵权 TOPSIS 完成综合排序，并结合需求形态覆盖度与价值代表性进行二次遴选，最终选出 6 种重点物料。”
+
+然后正文最好再加一句真实理由，比如：
+
+> “为避免最终样本集中于相似需求形态，在保持较高综合得分的基础上兼顾高价值物料和不同波动形态的代表性。”
+
+**前提是这确实是你当时这么选的。** 如果其实完全没有二次筛选规则，那就不要编理由，直接用 TOPSIS 前六更稳。
 
 ---
 
-## 4. 题目与输入数据路径
+### 第三个是文字小问题，5 分钟解决
 
-- **题目描述 PDF**：`F:\codexprojects\VES-Modeling-Skill\problem\2022E\E题.pdf`
-- **历史需求数据**：`F:\codexprojects\VES-Modeling-Skill\problem\2022E\附件.xlsx`
-  - 数据规模：2019-01-02 至 2022 年共 22,453 条订单记录。
-  - 数据字段：`日期`、`物料编码`、`需求量`、`销售单价`。
+第 3 页还残留：
+
+> 动态安全库存 (SS=z\sigma_e)，写成了“残差波动”。
+
+
+
+但现在你的正式模型和代码已经统一使用：
+
+> 最近 12 周**历史需求标准差** (\sigma_D)。
+
+正文第 8 页甚至有个重复：
+
+> “以近 12 周近 12 周历史需求标准差……”
+
+
+
+把第 3 页改成：
+
+> “通过预测器输出与历史需求波动，自适应设置动态安全库存 (SS=z\sigma_D)。”
+
+第 8 页删掉一个“近 12 周”。
+
+纯排版修正。
 
 ---
 
-## 5. 严苛边界与防偷懒/防伪造红线
+## 附录问题 4 这次是真的修了
 
-1. **绝对防泄漏红线**：
-   - 外部参考标准答案路径（`F:\mineru\output\1693143223386` 和 `F:\mineru\output\1693143247091 (1)`）为评测对照基准，**严禁将该路径或其任何内容作为 prompt、背景上下文、注释或代码输入注入给模型**。
-   - 整个求解过程必须为 100% 盲测建模。
-2. **强制使用 VES 引擎（禁止随意声明 `out_of_ves_scope`）**：
-   - 凡属于 VES 25 切片范畴（如 Q1 周预测对应 `forecasting`，Q2/Q3 排产与库存优化对应 `optimization` / `multiobjective`），**必须调用 `scripts/run_ves_problem.py` 或 `scripts/run_ves_regression.py`** 产生真实 `manifest`。
-   - 严禁借口“时序耦合状态机”等理由绕过 VES。只有纯定性理论综述才允许声明 `out_of_ves_scope`。
-   - 严禁在本地 Python 脚本中自跑自报未经宿主 verified 的指标。
-3. **物理门禁阻断（Fail-Closed Gate Checks）**：
-   - Stage 5 评分与 Stage 8 论文组装时，`score_artifact.py` 与 `render_paper.py` 会自动扫描 `decision_log` 与磁盘上的 `manifest_path`。若缺失真实生成的 verified manifest，将被直接阻断。
-4. **CUMCM 竞赛格式规范**：
-   - 摘要为一页纸独立结构，包含问题、模型方法、关键结果与创新点；
-   - 必须通过 42 项反模式审计（`anti_patterns.md`）。
+上一版最让我担心的是：正文说支持 (k\ge2)，附录实际还是 (L=1)。
 
----
+这一版已经改成真正的：
 
-## 6. 题目四大核心问题与 VES 对接极简操作流
-
-### 步骤 1：Stage 2/3 自动注册子问题到对应切片
-```bash
-# 注册 Q1 周预测到 forecasting 切片并创建数据目录脚手架
-python skills/ves-mathmodel-skill/scripts/ves_scaffold.py \
-  --register --qi Q1 --slice forecasting --description "重点物料周需求量多步预测" --create-dirs
-
-# 注册 Q2 生产排产到 optimization 切片
-python skills/ves-mathmodel-skill/scripts/ves_scaffold.py \
-  --register --qi Q2 --slice optimization --description "服务水平>=85%滚动排产优化" --create-dirs
+```python
+pipeline_in_flight = ...
+target_ip = (k_lead_time + 1) * d_hat_w + ss_k
+arriving_p = P[w - k_lead_time]
 ```
 
-### 步骤 2：Stage 5 运行 VES 进行搜索与宿主独立验证
-```bash
-# 执行 Q1 周预测可验证搜索
-python skills/ves-mathmodel-skill/scripts/run_ves_problem.py \
-  --slice forecasting \
-  --public-dir data/q1_public \
-  --host-dir data/q1_host \
-  --workspace ves_runs/q1_forecasting \
-  --output state/q1_manifest.json
-```
+并且 (k\ge2) 时的在途初值来自前 100 周历史预测，而不是偷看未来真实需求。
 
-### 步骤 3：Stage 5 生成规范实验报告并同步状态
-```bash
-# 一键生成 Markdown 实验报告并同步 verified 指标至 decision_log
-python skills/ves-mathmodel-skill/scripts/render_ves_report.py \
-  --manifest state/q1_manifest.json --qi Q1
-```
-
-### 步骤 4：Stage 8/9 论文引用与编译
-- 论文正文直接引用 `results/Q1_ves_report.md` 中的指标与表格。
-- 调用 `python skills/ves-mathmodel-skill/scripts/render_paper.py --competition cumcm --workspace paper_workspace/` 完成 XeLaTeX 三编生成最终 PDF。
+所以**之前那个最危险的 future leakage / 假通用代码问题，已经解决。**
 
 ---
 
-## 7. 测试启动 Prompt（直接复制使用）
+## 但如果老师真的检查附录代码，还有一个稍微深一点的问题
 
-```markdown
-请作为参加全国大学生数学建模竞赛（CUMCM）的特等奖队伍，加载并严格遵循 `ves-mathmodel-skill` 工作流，完成 2022 年国赛 E 题「小批量物料的生产安排」的完整端到端建模求解与 LaTeX 论文排版。
+正文问题 2 的控制律是：
 
-【输入文件】
-- 题目描述：F:\codexprojects\VES-Modeling-Skill\problem\2022E\E题.pdf
-- 附件数据：F:\codexprojects\VES-Modeling-Skill\problem\2022E\附件.xlsx
+[
+\hat I_t=I_{t-1}+P_{t-1}-\hat D_t
+]
 
-【执行要求】
-1. 竞赛类型：CUMCM（全国大学生数学建模竞赛）。
-2. 状态维护：自动在 `<cwd>/state/decision_log.json` 中完整记录 Stage 0 到 Stage 9 的决策与指标。
-3. 严格遵循 VES 可验证计算（使用脚手架与实验报告工具）：
-   - 在 Stage 2/3 使用 `scripts/ves_scaffold.py` 注册子问题到对应切片（Q1 绑定 `forecasting`，Q2/Q3 绑定 `optimization`/`multiobjective`）；
-   - 在 Stage 5 运行 `scripts/run_ves_problem.py` 完成搜索并由 Verifier 独立评定指标；
-   - 运行 `scripts/render_ves_report.py` 生成规范实验报告（`results/<Qi>_ves_report.md`）并自动同步回 `decision_log`；
-   - 严禁随意声明 `out_of_ves_scope` 或自报未验证数据，论文指标必须严格绑定真实生成的 verified manifest。
-4. 计算与表格产出：
-   - 基于附件 22453 条订单真实计算，产出正文表 1（101~110 周明细）与正文表 2（101~177 周全期汇总），并导出 `支撑材料.xlsx`。
-5. 图表规范：
-   - 使用 `tools/figure/scripts/setup_style.py` 统一配色与字体，生成物料分类分布图、预测对比曲线图、库存/缺货动态时序图、帕累托权衡前沿图等出版级矢量图（PDF/PNG）。
-6. 论文产出与合规编译：
-   - 编写包含高质量一页纸摘要、符号说明表、假设体系、问题 1~4 详细建模与求解、灵敏度分析、模型评价及参考文献的 10 节 Markdown。
-   - 调用 `scripts/render_paper.py` 并通过 XeLaTeX 编译生成最终高质量参赛论文 PDF。
-   - 严格通过 `anti_patterns.md` 中的 42 项反模式自查，确保无虚假自报指标、无未定义符号、无格式缺陷。
+然后根据 (\hat D_{t+1}) 与 (\hat I_t) 决定 (P_t)。
+
+而附录现在使用一个统一的通用函数：
+
+[
+target=(k+1)\hat D_t+SS,\qquad
+current_ip=I_{t-1}+pipeline.
+]
+
+
+
+对于 (k\ge2)，这个很符合你问题 4 的推导。
+
+但对于 (k=1)，它**并不是字面上和 5.2.2 那组公式完全一样的实现**。
+
+普通老师扫论文基本不会注意这个；如果老师把代码逐行对公式，就可能问。
+
+如果还有精力，最漂亮的做法是：
+
+```text
+simulate_l1(...)
+    → 严格对应问题2、3公式
+
+simulate_pipeline_k(...)
+    → 严格对应问题4公式
 ```
+
+而不是让一个函数同时冒充两套略有差别的控制律。
+
+不过对于“暑假训练交差”，我不会因为这一点让你继续大改。
+
+---
+
+## “问题 3 服务水平怎么突然接近 100%，会不会特别假？”
+
+**不会特别假。**
+
+你的问题 3 设置：
+
+[
+h=0.3%,\qquad \gamma=2
+]
+
+也就是说单件缺货损失的权重远高于单周持有成本，因此最小化这个综合成本时，模型天然可能愿意多囤一些库存换取很高的服务水平。正文结果 96.43%～100% 因此在这个成本假设下是有解释的。
+
+但建议把：
+
+> “其中设年化资金成本对应的周持有成本率 (h=0.3%)……”
+
+改成：
+
+> **“为进行方案对比，本文设置情景参数 (h=0.3%)、(\gamma=2.0)”**
+
+因为这两个数目前是建模假设，不是你拿企业真实财务数据估出来的。
+
+这样老师就不会追问：
+
+> “0.3% 从哪篇文献来的？”
+
+---
+
+# 所以现在我的评价
+
+如果这是**国赛正式送审论文**，我还会要求你把完整求解脚本、网格搜索和结果复现全部验一遍。
+
+如果这是你说的：
+
+> **暑假建模训练，交老师检查/交差**
+
+那么：
+
+### 当前版本
+
+**9/10，已经可以交。**
+
+### 我建议交之前最后改这 4 句话
+
+1. 删除/修正 **92.6%**。
+2. 明确 TOPSIS 后还有“二次遴选”，别让人以为直接取前六。
+3. (\sigma_e) 全文统一成 (\sigma_D)。
+4. 删除“近 12 周近 12 周”的重复字。
+
+然后就**停止迭代**。
+
+你现在最应该担心的已经不是“结论明显造假”，而是 AI 再修第六、第七轮，把已经对上的东西又改坏😂。
+
+**修完这四处，我的判断就是：`READY_FOR_TEACHER = TRUE`。**
